@@ -12,7 +12,15 @@ def env = System.getenv()
 def signed = env.KEYSTORE_FILE != null
 def build = (env.APP_VERSION_CODE ?: '0') as int
 
+// In-app updates read this file, published by CI next to moonlight.apk.
+def updateUrl = 'https://github.com/tonocarvacho/moonlight-android/releases/latest/download/update.json'
+
 android {
+    defaultConfig {
+        // Empty = updates off (debug builds)
+        buildConfigField "String", "UPDATE_URL", '""'
+    }
+
     productFlavors {
         nonRoot { applicationId forkAppId }
         root { applicationId "${forkAppId}.root" }
@@ -33,6 +41,7 @@ android {
         release {
             if (signed) signingConfig signingConfigs.release
             versionNameSuffix "-fork.$build"
+            buildConfigField "String", "UPDATE_URL", "\"$updateUrl\""
             resValue "string", "app_label", "Moonlight Fork"
             resValue "string", "app_label_root", "Moonlight Fork (Root)"
         }

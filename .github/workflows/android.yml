@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
+          fetch-depth: 0 # tags + history for the release notes
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -58,11 +59,23 @@ jobs:
           "$apksigner" verify --print-certs "$APK" | grep -q 'CN=Moonlight Fork'
 
       - name: Publish the release
+        # update.json drives the in-app updater (Docs/updates.md)
         run: |
-          version=$(grep -m1 versionName app/build.gradle | cut -d'"' -f2)-fork.${{ github.run_number }}
+          meta=app/build/outputs/apk/nonRoot/release/output-metadata.json
+          code=$(jq -r '.elements[0].versionCode' "$meta")
+          version=$(jq -r '.elements[0].versionName' "$meta")
           cp "$APK" moonlight.apk
-          gh release create "v$version" moonlight.apk --latest \
+          prev=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          notes=$(git log --no-merges --format='• %s' ${prev:+$prev..}HEAD | head -15)
+          jq -n --argjson versionCode "$code" --arg versionName "$version" \
+            --arg apk "https://github.com/$GITHUB_REPOSITORY/releases/download/v$version/moonlight.apk" \
+            --arg sha256 "$(sha256sum moonlight.apk | cut -d' ' -f1)" --arg notes "$notes" \
+            '{versionCode: $versionCode, versionName: $versionName, apk: $apk, sha256: $sha256, notes: $notes}' > update.json
+          cat update.json
+          gh release create "v$version" moonlight.apk update.json --latest \
             --title "Moonlight Fork $version" \
-            --notes "Built from ${GITHUB_SHA::7}. Install: download moonlight.apk on the phone and open it."
+            --notes "$notes
+
+          Built from ${GITHUB_SHA::7}. Update from the app (Settings → Check for updates) or download moonlight.apk on the phone and open it."
         env:
           GH_TOKEN: ${{ github.token }}

@@ -3,6 +3,7 @@ Fedora/NVIDIA (GTX 960, X11) PC to a Samsung S24.
 
 - Build, signing, CI, install and upstream merges: Docs/android.md
 - Hotkey overlay (fork feature, layout JSON, code map): Docs/hotkeys.md
+- In-app updates from GitHub releases (update.json, CI, testing): Docs/updates.md
 - all documentation/plans/instructions for agents/research must be in /Docs,
   update it when implementing things
 - keep fork-only build settings in app/fork.gradle; keep upstream files'

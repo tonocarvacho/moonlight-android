@@ -213,6 +213,18 @@
             android:text="@string/suffix_osc_opacity"
             android:title="@string/title_hotkey_opacity" />
     </PreferenceCategory>
+    <!-- Fork: in-app updates (Docs/updates.md) -->
+    <PreferenceCategory android:title="@string/category_updates"
+        android:key="category_updates">
+        <com.limelight.update.CheckUpdatesPreference
+            android:key="fork_check_updates"
+            android:title="@string/title_check_updates" />
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="checkbox_auto_update_check"
+            android:summary="@string/summary_checkbox_auto_update_check"
+            android:title="@string/title_checkbox_auto_update_check" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_host_settings">
         <CheckBoxPreference
             android:key="checkbox_enable_sops"

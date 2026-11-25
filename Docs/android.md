@@ -10,7 +10,8 @@ Fork of [moonlight-stream/moonlight-android](https://github.com/moonlight-stream
 - Debug builds: `com.tonycgames.moonlight.debug`, label "Moonlight (Debug)",
   so a dev build and the release can live on the same phone.
 
-Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys on the sides of the stream).
+Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys on the sides of the stream),
+[in-app updates](updates.md) (the app updates itself from GitHub releases).
 
 ## Fork changes live in `app/fork.gradle`
 
@@ -30,7 +31,8 @@ On every push to `master` (docs-only changes skipped) or by hand
 2. Java 21, NDK `29.0.14206865` (keep in sync with `ndkVersion`).
 3. `./gradlew assembleNonRootRelease`, signed with the release key.
 4. Checks the signature, then creates release `v<version>` with
-   `moonlight.apk`, marked latest.
+   `moonlight.apk` and `update.json` (for the [in-app updater](updates.md)),
+   marked latest. The release notes list the commits since the last release.
 
 | Secret / variable | Value |
 | --- | --- |

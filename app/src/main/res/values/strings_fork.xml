@@ -8,4 +8,26 @@
     <string name="summary_hotkey_opacity">How see-through the hotkeys are</string>
     <string name="hotkeys_first_hint">Hotkeys: tap a side\'s title to change page, hold it to hide the side</string>
     <string name="hotkeys_bad_file">hotkeys.json not loaded (%1$s). Using the built-in layout.</string>
+
+    <string name="category_updates">Updates</string>
+    <string name="title_check_updates">Check for updates</string>
+    <string name="summary_check_updates">Installed: %1$s</string>
+    <string name="title_checkbox_auto_update_check">Check when the app opens</string>
+    <string name="summary_checkbox_auto_update_check">Offer new versions from GitHub (at most once an hour)</string>
+    <string name="update_checking">Checking for updates…</string>
+    <string name="update_up_to_date">You have the latest version (%1$s)</string>
+    <string name="update_check_failed">Couldn\'t check for updates: %1$s</string>
+    <string name="update_disabled_debug">Debug builds don\'t update themselves</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_message">Version %1$s is ready (you have %2$s). Settings and paired PCs are kept.</string>
+    <string name="update_install">Update</string>
+    <string name="update_later">Later</string>
+    <string name="update_downloading">Downloading %1$s</string>
+    <string name="update_bad_checksum">download is corrupted (checksum mismatch)</string>
+    <string name="update_download_failed">Update download failed: %1$s</string>
+    <string name="update_permission_title">Allow updates</string>
+    <string name="update_permission_message">Android needs your OK once for Moonlight Fork to install its own updates. Turn on \"Allow from this source\", then come back.</string>
+    <string name="update_open_settings">Open settings</string>
+    <string name="update_installing">Installing update…</string>
+    <string name="update_install_failed">Update failed: %1$s</string>
 </resources>
