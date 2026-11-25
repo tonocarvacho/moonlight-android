@@ -1,0 +1,51 @@
+// Fork-specific build settings, applied at the end of build.gradle.
+// Kept in their own file so merging upstream Moonlight stays conflict-free.
+// Docs: Docs/android.md
+
+// Own application id: installs next to the official Moonlight, and keeps
+// our crashes out of upstream's Play Console (see the note in build.gradle).
+def forkAppId = 'com.tonycgames.moonlight'
+
+// CI sets these (.github/workflows/android.yml). Without a key the release
+// build is unsigned.
+def env = System.getenv()
+def signed = env.KEYSTORE_FILE != null
+def build = (env.APP_VERSION_CODE ?: '0') as int
+
+android {
+    productFlavors {
+        nonRoot { applicationId forkAppId }
+        root { applicationId "${forkAppId}.root" }
+    }
+
+    signingConfigs {
+        release {
+            if (signed) {
+                storeFile file(env.KEYSTORE_FILE)
+                storePassword env.KEYSTORE_PASSWORD
+                keyAlias env.KEY_ALIAS
+                keyPassword env.KEY_PASSWORD ?: env.KEYSTORE_PASSWORD
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (signed) signingConfig signingConfigs.release
+            versionNameSuffix "-fork.$build"
+            resValue "string", "app_label", "Moonlight Fork"
+            resValue "string", "app_label_root", "Moonlight Fork (Root)"
+        }
+    }
+}
+
+// Every CI build must have a higher versionCode than the last, or Android
+// refuses the update. Upstream's code x 1000 + the run number keeps rising
+// across both our builds and upstream version bumps.
+androidComponents {
+    onVariants(selector().withBuildType('release')) { variant ->
+        variant.outputs.each { output ->
+            output.versionCode.set(output.versionCode.get() * 1000 + build)
+        }
+    }
+}
