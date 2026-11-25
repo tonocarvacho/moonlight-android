@@ -5,6 +5,7 @@ import com.limelight.binding.PlatformBinding;
 import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.KeyboardTranslator;
+import com.limelight.hotkeys.HotkeyOverlay;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
@@ -112,6 +113,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private ControllerHandler controllerHandler;
     private KeyboardTranslator keyboardTranslator;
     private VirtualController virtualController;
+    private HotkeyOverlay hotkeyOverlay;
 
     private PreferenceConfiguration prefConfig;
     private SharedPreferences tombstonePrefs;
@@ -513,6 +515,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
             virtualController.show();
         }
 
+        hotkeyOverlay = HotkeyOverlay.create(this, (FrameLayout)streamView.getParent(), streamView,
+                (keyMap, direction, modifiers) -> conn.sendKeyboardInput(keyMap, direction, modifiers, (byte)0),
+                this::toggleKeyboard);
+
         if (prefConfig.usbDriver) {
             // Start the USB driver
             bindService(new Intent(this, UsbDriverService.class),
@@ -594,6 +600,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 if (virtualController != null) {
                     virtualController.hide();
                 }
+                if (hotkeyOverlay != null) {
+                    hotkeyOverlay.hide();
+                }
 
                 performanceOverlayView.setVisibility(View.GONE);
                 notificationOverlayView.setVisibility(View.GONE);
@@ -611,6 +620,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
                 if (virtualController != null) {
                     virtualController.show();
+                }
+                if (hotkeyOverlay != null) {
+                    hotkeyOverlay.show();
                 }
 
                 if (prefConfig.enablePerfOverlay) {
@@ -1085,6 +1097,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (virtualController != null) {
             virtualController.hide();
         }
+        if (hotkeyOverlay != null) {
+            hotkeyOverlay.releaseAll();
+        }
 
         if (conn != null) {
             int videoFormat = decoderRenderer.getActiveVideoFormat();
@@ -1316,7 +1331,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     }
 
     private byte getModifierState() {
-        return (byte) modifierFlags;
+        // Include modifiers latched on the hotkey overlay
+        return (byte) (modifierFlags | (hotkeyOverlay != null ? hotkeyOverlay.getModifierFlags() : 0));
     }
 
     @Override
@@ -1460,6 +1476,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
             conn.sendKeyboardInput(translated, KeyboardPacket.KEY_UP, getModifierState(event),
                     keyboardTranslator.hasNormalizedMapping(event.getKeyCode(), event.getDeviceId()) ? 0 : MoonBridge.SS_KBE_FLAG_NON_NORMALIZED);
+            if (hotkeyOverlay != null) {
+                hotkeyOverlay.onExternalKeyUp(event.getKeyCode());
+            }
         }
 
         return true;

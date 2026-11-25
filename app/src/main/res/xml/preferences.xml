@@ -193,6 +193,26 @@
             />
 
     </PreferenceCategory>
+    <!-- Fork: hotkey overlay (Docs/hotkeys.md) -->
+    <PreferenceCategory android:title="@string/category_hotkey_overlay"
+        android:key="category_hotkey_overlay">
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="checkbox_hotkey_overlay"
+            android:summary="@string/summary_checkbox_hotkey_overlay"
+            android:title="@string/title_checkbox_hotkey_overlay" />
+        <com.limelight.preferences.SeekBarPreference
+            android:key="seekbar_hotkey_opacity"
+            android:dependency="checkbox_hotkey_overlay"
+            android:dialogMessage="@string/summary_hotkey_opacity"
+            seekbar:min="20"
+            seekbar:step="5"
+            android:max="100"
+            android:defaultValue="80"
+            android:summary="@string/summary_hotkey_opacity"
+            android:text="@string/suffix_osc_opacity"
+            android:title="@string/title_hotkey_opacity" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="@string/category_host_settings">
         <CheckBoxPreference
             android:key="checkbox_enable_sops"

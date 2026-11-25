@@ -1,0 +1,87 @@
+{
+  "_doc": "Hotkey overlay layout. Format and key names: Docs/hotkeys.md",
+  "left": {
+    "accent": "#8be9fd",
+    "pages": [
+      {
+        "name": "Desk",
+        "rows": [
+          [{ "label": "Apps", "hint": "rofi", "keys": "Ctrl+Space" }],
+          [{ "label": "1", "keys": "Super+U" }, { "label": "2", "keys": "Super+I" }],
+          [{ "label": "3", "keys": "Super+O" }, { "label": "4", "keys": "Super+P" }],
+          [{ "label": "5", "keys": "Super+2" }, { "label": "♫", "hint": "spotify", "keys": "Super+Y" }],
+          [{ "label": "Last", "hint": "window", "keys": "Super+Ctrl+L" }, { "label": "Next", "hint": "window", "keys": "Shift+Alt+T" }],
+          [{ "label": "Full", "keys": "Super+Z" }, { "label": "Close", "keys": "Super+Q" }]
+        ]
+      },
+      {
+        "name": "Move",
+        "rows": [
+          [{ "label": "→1", "keys": "Super+Alt+U" }, { "label": "→2", "keys": "Super+Alt+I" }],
+          [{ "label": "→3", "keys": "Super+Alt+O" }, { "label": "→4", "keys": "Super+Alt+P" }],
+          [{ "label": "Master", "keys": "Super+Ctrl+W" }, { "label": "Swap", "keys": "Super+Escape" }],
+          [{ "label": "Float", "keys": "Super+Ctrl+T" }, { "label": "Screen", "keys": "Super+Ctrl+U" }],
+          [{ "label": "Wider", "keys": "Super+Ctrl+J" }, { "label": "Thinner", "keys": "Super+Ctrl+K" }],
+          [{ "label": "Layout", "keys": "Shift+Alt+G" }, { "label": "Shot", "hint": "area", "keys": "Super+S" }]
+        ]
+      },
+      {
+        "name": "Nav",
+        "rows": [
+          [{ "label": "↑", "keys": "Up" }, { "label": "PgUp", "keys": "PageUp" }],
+          [{ "label": "↓", "keys": "Down" }, { "label": "PgDn", "keys": "PageDown" }],
+          [{ "label": "←", "keys": "Left" }, { "label": "→", "keys": "Right" }],
+          [{ "label": "Home", "keys": "Home" }, { "label": "End", "keys": "End" }],
+          [{ "label": "⌫", "keys": "Backspace" }, { "label": "Del", "keys": "Delete" }],
+          [{ "label": "^C", "keys": "Ctrl+C" }, { "label": "^D", "keys": "Ctrl+D" }]
+        ]
+      }
+    ],
+    "footer": [
+      [{ "mod": "Super" }, { "mod": "Ctrl" }],
+      [{ "mod": "Alt" }, { "mod": "Shift" }]
+    ]
+  },
+  "right": {
+    "accent": "#50fa7b",
+    "pages": [
+      {
+        "name": "Tmux",
+        "rows": [
+          [{ "label": "New", "hint": "tab", "keys": "Alt+T" }, { "label": "Close", "hint": "tab", "keys": "Alt+W" }],
+          [{ "label": "1", "hint": "tab", "keys": "Alt+R U" }, { "label": "2", "hint": "tab", "keys": "Alt+R I" }],
+          [{ "label": "3", "hint": "tab", "keys": "Alt+R O" }, { "label": "4", "hint": "tab", "keys": "Alt+R P" }],
+          [{ "label": "5", "hint": "tab", "keys": "Alt+R J" }, { "label": "Last", "hint": "tab", "keys": "Alt+J" }],
+          [{ "label": "Sess", "hint": "pick", "keys": "Alt+E" }, { "label": "⇄", "hint": "session", "keys": "Alt+K" }],
+          [{ "label": "Files", "keys": "Ctrl+P" }, { "label": "Yazi", "keys": "Alt+B" }]
+        ]
+      },
+      {
+        "name": "Pane",
+        "rows": [
+          [{ "label": "S1", "hint": "session", "keys": "Alt+R 1" }, { "label": "S2", "hint": "session", "keys": "Alt+R 2" }],
+          [{ "label": "S3", "hint": "session", "keys": "Alt+R 3" }, { "label": "S4", "hint": "session", "keys": "Alt+R 4" }],
+          [{ "label": "S5", "hint": "session", "keys": "Alt+R 5" }, { "label": "Copy", "hint": "mode", "keys": "Alt+R V" }],
+          [{ "label": "Split", "keys": "Alt+R T" }, { "label": "Pane", "hint": "select", "keys": "Alt+R H" }],
+          [{ "label": "Break", "hint": "pane", "keys": "Alt+R X" }, { "label": "Kill", "hint": "pane", "keys": "Alt+R W" }],
+          [{ "label": "Prefix", "hint": "⌥R", "keys": "Alt+R" }]
+        ]
+      },
+      {
+        "name": "Vim",
+        "rows": [
+          [{ "label": "Save", "keys": "Ctrl+S" }, { "label": "Quit", "hint": "all", "keys": "Space O" }],
+          [{ "label": "Alt", "hint": "buffer", "keys": "Ctrl+J" }, { "label": "Prev", "hint": "buffer", "keys": "Ctrl+K" }],
+          [{ "label": "½↑", "keys": "Ctrl+U" }, { "label": "½↓", "keys": "Ctrl+D" }],
+          [{ "label": "Undo", "keys": "U" }, { "label": "Redo", "keys": "Ctrl+R" }],
+          [{ "label": "Del", "hint": "buffer", "keys": "Ctrl+W W" }, { "label": "NoHL", "keys": "Ctrl+L" }],
+          [{ "label": ":", "hint": "cmd", "keys": "Shift+Semicolon" }, { "label": "/", "hint": "search", "keys": "Slash" }]
+        ]
+      }
+    ],
+    "footer": [
+      [{ "label": "Esc", "hint": "", "keys": "Escape" }, { "label": "Tab", "keys": "Tab" }],
+      [{ "label": "⌨", "hint": "kbd", "action": "keyboard" }, { "label": "⏎", "hint": "enter", "keys": "Enter" }]
+    ]
+  }
+}

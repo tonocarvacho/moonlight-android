@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fork-only strings, kept apart from upstream's strings.xml for easy merges. -->
+<resources>
+    <string name="category_hotkey_overlay">Hotkey Overlay</string>
+    <string name="title_checkbox_hotkey_overlay">Show desktop hotkeys</string>
+    <string name="summary_checkbox_hotkey_overlay">Translucent hotkeys on the sides of the stream (window manager, tmux, nvim). Modifiers: tap = next key only, double tap = lock</string>
+    <string name="title_hotkey_opacity">Hotkey opacity</string>
+    <string name="summary_hotkey_opacity">How see-through the hotkeys are</string>
+    <string name="hotkeys_first_hint">Hotkeys: tap a side\'s title to change page, hold it to hide the side</string>
+    <string name="hotkeys_bad_file">hotkeys.json not loaded (%1$s). Using the built-in layout.</string>
+</resources>

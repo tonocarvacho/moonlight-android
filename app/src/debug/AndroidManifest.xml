@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: hotkey overlay preview (Docs/hotkeys.md) -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.limelight.hotkeys.HotkeyPreviewActivity"
+            android:label="Hotkey preview"
+            android:exported="true"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:theme="@style/StreamTheme" />
+    </application>
+</manifest>
