@@ -38,12 +38,13 @@ import java.util.Map;
 /**
  * Translucent desktop hotkeys over the stream (fork feature, Docs/hotkeys.md).
  *
- * The shown buttons fill columns bottom-up: the right column first, then the
- * left one, then inner columns. In landscape the edge columns sit in the
- * letterbox bars; in portrait the stream moves to the top half and the
- * columns fill the bottom half (or the other way round). The toolbar's ⚙
- * opens {@link HotkeyEditor} (show/hide, order, new hotkeys) and ▾ hides the
- * keys. In arrange mode keys and columns are dragged on screen.
+ * Buttons live in {@link HotkeyLayout#SECTIONS} sections, each a block of
+ * keys filled bottom-up. By default section 1 sits in the right letterbox
+ * bar, 2 in the left one and 3-5 further in (over the video); in portrait the
+ * stream moves to one half and the sections share the other. Each section
+ * can be dragged anywhere (arrange mode, saved per orientation). The
+ * toolbar's ⚙ opens {@link HotkeyEditor} (sections, order, new hotkeys) and
+ * ▾ hides the keys.
  *
  * Modifier keys are sticky: tap = applies to the next key, double tap =
  * locked, tap again = off, hold = held only while the finger is down. A
@@ -71,9 +72,9 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     static final int MIN_KEY_HEIGHT_DP = 30;
     static final int MAX_KEY_HEIGHT_DP = 72;
     private static final long DOUBLE_TAP_MS = 400;
-    /** Accents: right-hand columns green, left-hand cyan (Dracula). */
-    private static final int ACCENT_RIGHT = 0xFF50FA7B;
-    private static final int ACCENT_LEFT = 0xFF8BE9FD;
+    /** Section colours (Dracula): green, cyan, purple, orange, pink; hidden = grey. */
+    private static final int[] SECTION_COLORS = {0xFF50FA7B, 0xFF8BE9FD, 0xFFBD93F9, 0xFFFFB86C, 0xFFFF79C6};
+    static final int HIDDEN_COLOR = 0xFF9EA0B5;
 
     private final Activity activity;
     private final FrameLayout parent;
@@ -93,8 +94,11 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     private final HotkeyColumn.Toolbar toolbar;
     private final HotkeyColumn.Handle handle;
     private final View blocker;
+    /** One view per section, index = section - 1 (empty ones too, for arrange mode). */
     private final List<HotkeyColumn> columns = new ArrayList<>();
     private final List<Slot> slots = new ArrayList<>();
+    /** Rows that fit in each section, index = section - 1. */
+    private final int[] sectionRows = new int[HotkeyLayout.SECTIONS];
     private final Map<String, Integer> placement = new HashMap<>();
     private HotkeyArrangeLayer arrangeLayer;
     private HotkeyEditor editor;
@@ -112,16 +116,15 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     private final boolean[] usedWhileHeld = new boolean[modCount];
     private final long[] lastTap = new long[modCount];
 
-    /** One column position: where it is and how many rows fit. */
+    /** One default column position (two keys wide) and the height keys may use. */
     static final class Slot {
-        final int x, top, bottom, width, rows;
+        final int x, top, bottom, width;
 
-        Slot(int x, int top, int bottom, int width, int rows) {
+        Slot(int x, int top, int bottom, int width) {
             this.x = x;
             this.top = top;
             this.bottom = bottom;
             this.width = width;
-            this.rows = rows;
         }
     }
 
@@ -176,8 +179,8 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         blocker.setOnTouchListener((v, e) -> true);
         parent.addView(blocker, new FrameLayout.LayoutParams(0, 0));
 
-        toolbar = new HotkeyColumn.Toolbar(activity, ACCENT_RIGHT, this);
-        handle = new HotkeyColumn.Handle(activity, ACCENT_RIGHT);
+        toolbar = new HotkeyColumn.Toolbar(activity, sectionColor(1), this);
+        handle = new HotkeyColumn.Handle(activity, sectionColor(1));
         handle.setOnClickListener(v -> {
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             setCollapsed(false);
@@ -209,6 +212,11 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
             }
         }
         return defaults;
+    }
+
+    /** Colour of a section (1..SECTIONS), or grey for hidden. */
+    static int sectionColor(int section) {
+        return section >= 1 && section <= SECTION_COLORS.length ? SECTION_COLORS[section - 1] : HIDDEN_COLOR;
     }
 
     // ---- Game hooks ----
@@ -492,20 +500,28 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     }
 
     /**
-     * Where each shown button landed: column number (0 = right, 1 = left,
-     * 2 = right inner, ...), or -1 when it doesn't fit on screen.
+     * Where each button in a section landed: its section, or -1 when it
+     * doesn't fit on screen (its section is full).
      */
     Map<String, Integer> placement() {
         return placement;
     }
 
-    /** Keys that fit (two per row); sidesOnly: just the two edge columns. */
-    int columnCapacity(boolean sidesOnly) {
-        int cells = 0;
-        for (int k = 0; k < slots.size() && (!sidesOnly || k < 2); k++) {
-            cells += 2 * slots.get(k).rows;
+    /** Buttons of a section that don't fit on screen. */
+    int overflow(int section) {
+        int n = 0;
+        for (HotkeyLayout.Button b : layout.inSection(section)) {
+            Integer placed = placement.get(b.id);
+            if (placed != null && placed < 0) {
+                n++;
+            }
         }
-        return cells;
+        return n;
+    }
+
+    /** Rows of keys that fit in a section (1..SECTIONS) on this screen. */
+    int sectionRows(int section) {
+        return sectionRows[section - 1];
     }
 
     boolean isPortrait() {
@@ -514,6 +530,11 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
 
     int keyHeightDp() {
         return state.getInt(KEY_HEIGHT, DEFAULT_KEY_HEIGHT_DP);
+    }
+
+    /** The key height in use, in px. */
+    int keyHeightPx() {
+        return px(Math.max(MIN_KEY_HEIGHT_DP, Math.min(MAX_KEY_HEIGHT_DP, keyHeightDp())));
     }
 
     void setKeyHeightDp(int value) {
@@ -580,39 +601,16 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         return columns;
     }
 
-    /**
-     * Arrange-mode drop: swaps the two buttons, so nothing else moves; with
-     * {@code after}, the button goes right after {@code target} instead
-     * (dropped above a column's top key).
-     */
-    void moveButton(HotkeyLayout.Button moved, HotkeyLayout.Button target, boolean after) {
-        List<HotkeyLayout.Button> list = new ArrayList<>(layout.buttons);
-        int from = list.indexOf(moved);
-        int to = list.indexOf(target);
-        if (from < 0 || to < 0 || moved == target) {
-            return;
-        }
-        if (after) {
-            list.remove(from);
-            list.add(list.indexOf(target) + 1, moved);
-        }
-        else {
-            list.set(from, target);
-            list.set(to, moved);
-        }
-        setLayout(new HotkeyLayout(list, layout.seen));
+    /** Arrange-mode drop: the button goes to {@code section}, before its index-th button. */
+    void moveButton(HotkeyLayout.Button moved, int section, int index) {
+        setLayout(layout.move(moved, section, index));
     }
 
     void hideButton(HotkeyLayout.Button button) {
-        List<HotkeyLayout.Button> list = new ArrayList<>(layout.buttons);
-        int i = list.indexOf(button);
-        if (i >= 0) {
-            list.set(i, button.withShow(false));
-            setLayout(new HotkeyLayout(list, layout.seen));
-        }
+        setLayout(layout.move(button, HotkeyLayout.HIDDEN, Integer.MAX_VALUE));
     }
 
-    /** Column drag: dx/dy (px) from its default spot. Saved per orientation. */
+    /** Section drag (column = section - 1): dx/dy (px) from its default spot. Saved per orientation. */
     void setColumnOffset(int column, float dx, float dy, boolean commit) {
         HotkeyColumn c = column < columns.size() ? columns.get(column) : null;
         if (c == null) {
@@ -690,7 +688,7 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         boolean nowPortrait = height > width;
         boolean keysShown = !hidden && !collapsed;
         boolean above = keysAbove();
-        int keyHeight = px(Math.max(MIN_KEY_HEIGHT_DP, Math.min(MAX_KEY_HEIGHT_DP, keyHeightDp())));
+        int keyHeight = keyHeightPx();
         int margin = px(6);
         int gap = px(4);
         int toolbarHeight = px(HotkeyColumn.TOOLBAR_DP) + gap / 2;
@@ -726,7 +724,7 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         portrait = nowPortrait;
 
         computeSlots(width, height, safeL, safeT, safeR, safeB, placeStream ? streamHeight : -1, above,
-                leftBar, rightBar, keyHeight, margin, gap, toolbarHeight);
+                leftBar, rightBar, margin, gap);
         rebuildColumns(keyHeight, gap, toolbarHeight);
 
         // Handle for the hidden keys: right edge
@@ -764,13 +762,13 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     }
 
     /**
-     * Column positions in fill order. Landscape: right bar, left bar, then
-     * inward. Portrait: an even grid across the key area, filled rightmost,
+     * Default column positions, in section order. Landscape: right bar, left
+     * bar, then inward. Portrait: an even grid across the key area, rightmost,
      * leftmost, then inward.
      */
     private void computeSlots(int width, int height, int safeL, int safeT, int safeR, int safeB,
                               int streamHeight, boolean above, int leftBar, int rightBar,
-                              int keyHeight, int margin, int gap, int toolbarHeight) {
+                              int margin, int gap) {
         slots.clear();
         int top, bottom;
         List<int[]> xs = new ArrayList<>(); // {x, width}
@@ -804,13 +802,22 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
                 xs.add(new int[]{x, colWidth});
             }
         }
-        for (int k = 0; k < xs.size(); k++) {
-            int avail = bottom - top - (k == 0 ? toolbarHeight : 0);
-            slots.add(new Slot(xs.get(k)[0], top, bottom, xs.get(k)[1], Math.max(0, avail / keyHeight)));
+        if (xs.isEmpty()) {
+            // No bars at all (stream fills the screen): one column at the right edge
+            int colWidth = px(80);
+            xs.add(new int[]{width - safeR - margin - colWidth, colWidth});
+        }
+        for (int[] x : xs) {
+            slots.add(new Slot(x[0], top, bottom, x[1]));
         }
     }
 
-    /** Flows the shown buttons into the slots and recreates the column views. */
+    /**
+     * Recreates the section views. Section k takes default column k (right
+     * bar, left bar, then inward); when there are fewer columns than
+     * sections (portrait), the rest stack on top of the first ones. A section
+     * is as wide as its keys per row (a column holds two), growing inward.
+     */
     private void rebuildColumns(int keyHeight, int gap, int toolbarHeight) {
         for (HotkeyColumn c : columns) {
             c.cancelPresses();
@@ -819,50 +826,39 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         columns.clear();
         placement.clear();
 
-        // Rows per slot, bottom-up; a row is one wide button or up to two
-        List<List<List<HotkeyLayout.Button>>> filled = new ArrayList<>();
-        for (int k = 0; k < slots.size(); k++) {
-            filled.add(new ArrayList<>());
-        }
-        int slot = 0;
-        for (HotkeyLayout.Button b : layout.shown()) {
-            boolean placed = false;
-            while (slot < slots.size()) {
-                List<List<HotkeyLayout.Button>> rows = filled.get(slot);
-                List<HotkeyLayout.Button> last = rows.isEmpty() ? null : rows.get(rows.size() - 1);
-                if (!b.key.wide && last != null && last.size() == 1 && !last.get(0).key.wide) {
-                    last.add(b);
-                    placed = true;
-                }
-                else if (rows.size() < slots.get(slot).rows) {
-                    List<HotkeyLayout.Button> row = new ArrayList<>();
-                    row.add(b);
-                    rows.add(row);
-                    placed = true;
-                }
-                if (placed) {
-                    break;
-                }
-                slot++;
-            }
-            placement.put(b.id, placed ? slot : -1);
-        }
-
         float opacity = prefs.getInt(PREF_OPACITY, 80) / 100f;
         boolean keysShown = !hidden && !collapsed;
-        for (int k = 0; k < slots.size(); k++) {
-            List<List<HotkeyLayout.Button>> rows = filled.get(k);
-            if (k > 0 && rows.isEmpty()) {
-                break; // later slots are empty too
+        int stackGap = px(30); // room for the arrange-mode grip
+        int[] tops = new int[HotkeyLayout.SECTIONS];
+        for (int k = 0; k < HotkeyLayout.SECTIONS; k++) {
+            int section = k + 1;
+            Slot s = slots.get(k % slots.size());
+            boolean stacked = k >= slots.size();
+            sectionRows[k] = Math.max(1, (s.bottom - s.top - (k == 0 ? toolbarHeight : 0)) / keyHeight);
+
+            List<List<HotkeyLayout.Button>> all = HotkeyLayout.rows(layout.inSection(section), layout.colsOf(section));
+            List<List<HotkeyLayout.Button>> rows = all.subList(0, Math.min(all.size(), sectionRows[k]));
+            for (int r = 0; r < all.size(); r++) {
+                for (HotkeyLayout.Button b : all.get(r)) {
+                    placement.put(b.id, r < rows.size() ? section : -1);
+                }
             }
-            Slot s = slots.get(k);
+
             boolean rightHand = s.x + s.width / 2 > parent.getWidth() / 2;
-            HotkeyColumn c = new HotkeyColumn(activity, rightHand ? ACCENT_RIGHT : ACCENT_LEFT, this);
+            int keyWidth = s.width / 2;
+            int width = Math.min(parent.getWidth(), keyWidth * layout.colsOf(section));
+            int x = rightHand ? s.x + s.width - width : s.x;
+            int bottom = stacked ? tops[k - slots.size()] - stackGap : s.bottom;
+            int keysHeight = rows.size() * keyHeight;
+            // An empty section keeps one (invisible) row, so arrange mode can drop keys in it
+            int h = Math.max(keysHeight, keyHeight) + (k == 0 ? toolbarHeight : 0);
+            tops[k] = bottom - h;
+
+            HotkeyColumn c = new HotkeyColumn(activity, section, sectionColor(section), this);
             c.build(rows, k == 0 ? toolbar : null, keyHeight, gap);
-            int h = rows.size() * keyHeight + (k == 0 ? toolbarHeight : 0);
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(s.width, h, Gravity.TOP | Gravity.LEFT);
-            lp.leftMargin = s.x;
-            lp.topMargin = s.bottom - h;
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(width, h, Gravity.TOP | Gravity.LEFT);
+            lp.leftMargin = x;
+            lp.topMargin = bottom - h;
             c.setLayoutParams(lp);
             c.setAlpha(opacity);
             c.setVisibility(keysShown ? View.VISIBLE : View.GONE);
@@ -875,28 +871,13 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
             c.setTranslationY(clamped[1]);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 // Keep Android's edge-swipe gestures from stealing key presses
-                c.setSystemGestureExclusionRects(Collections.singletonList(new Rect(0, 0, s.width, h)));
+                int used = keysHeight + (k == 0 ? toolbarHeight : 0);
+                c.setSystemGestureExclusionRects(used > 0 ? Collections.singletonList(new Rect(0, 0, width, used))
+                        : Collections.<Rect>emptyList());
             }
         }
         releaseUnseenMods();
         refreshModViews();
-    }
-
-    /** Name of a column for the editor: right, left, then inner ones. */
-    String columnName(int column) {
-        if (column < 0) {
-            return null;
-        }
-        if (column >= slots.size()) {
-            return "?";
-        }
-        Slot s = slots.get(column);
-        boolean rightHand = s.x + s.width / 2 > parent.getWidth() / 2;
-        int nth = column / 2 + 1;
-        if (portrait && slots.size() % 2 == 1 && column == slots.size() - 1) {
-            return "Mid";
-        }
-        return (rightHand ? "R" : "L") + nth;
     }
 
     View parentView() {

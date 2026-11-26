@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -23,14 +24,22 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Hotkey overlay layout: one ordered list of buttons, each shown or hidden.
- * Shown buttons fill the columns bottom-up (right column first, then left,
- * then inner columns). Parsed from JSON (assets/hotkeys/default.json, or the
- * user's hotkeys.json written by the in-stream editor). Format: Docs/hotkeys.md.
+ * Hotkey overlay layout: one ordered list of buttons, each in one of
+ * {@link #SECTIONS} sections (or hidden, section 0). A section is a block of
+ * keys the user can move anywhere on screen; its buttons fill it bottom-up,
+ * {@code cols} keys per row. Parsed from JSON (assets/hotkeys/default.json,
+ * or the user's hotkeys.json written by the in-stream editor). Format:
+ * Docs/hotkeys.md.
  */
 final class HotkeyLayout {
     static final String ASSET = "hotkeys/default.json";
-    static final int VERSION = 2;
+    static final int VERSION = 3;
+    static final int SECTIONS = 5;
+    static final int HIDDEN = 0;
+    static final int DEFAULT_COLS = 2;
+    static final int MAX_COLS = 6;
+    /** Rows per column of version 2 files on the S24 in landscape (default key height). */
+    private static final int V2_ROWS = 8;
 
     /** Modifier bits, as sent in keyboard packets. Index order = MODS. */
     static final int[] MODS = {
@@ -80,18 +89,19 @@ final class HotkeyLayout {
      */
     static final class Button {
         final String id;
-        final boolean show;
+        /** 1..SECTIONS, or HIDDEN. */
+        final int section;
         final JSONObject spec;
         final Key key;
 
-        Button(String id, boolean show, JSONObject spec) throws JSONException {
+        Button(String id, int section, JSONObject spec) throws JSONException {
             this.id = id;
-            this.show = show;
+            this.section = section;
             this.spec = spec;
             this.key = parseKey(spec);
         }
 
-        Button withShow(boolean value) {
+        Button inSection(int value) {
             try {
                 return new Button(id, value, spec);
             } catch (JSONException e) {
@@ -106,14 +116,37 @@ final class HotkeyLayout {
     }
 
     final List<Button> buttons;
+    /** Keys per row of each section, index 0 = section 1. */
+    final int[] cols;
     /** Built-in button ids this list already knows (so deleted ones stay deleted). */
     final Set<String> seen;
     /** In {@link #seen}: every built-in button counts as known (converted version 1 files). */
     private static final String SEEN_ALL = "*";
 
-    HotkeyLayout(List<Button> buttons, Set<String> seen) {
+    HotkeyLayout(List<Button> buttons, int[] cols, Set<String> seen) {
         this.buttons = buttons;
+        this.cols = cols;
         this.seen = seen;
+    }
+
+    HotkeyLayout withButtons(List<Button> newButtons) {
+        return new HotkeyLayout(newButtons, cols, seen);
+    }
+
+    HotkeyLayout withCols(int section, int value) {
+        int[] c = cols.clone();
+        c[section - 1] = Math.max(1, Math.min(MAX_COLS, value));
+        return new HotkeyLayout(buttons, c, seen);
+    }
+
+    int colsOf(int section) {
+        return cols[section - 1];
+    }
+
+    private static int[] defaultCols() {
+        int[] c = new int[SECTIONS];
+        Arrays.fill(c, DEFAULT_COLS);
+        return c;
     }
 
     int indexOf(String id) {
@@ -125,14 +158,61 @@ final class HotkeyLayout {
         return -1;
     }
 
-    List<Button> shown() {
+    /** The buttons of one section (HIDDEN: the hidden ones), in fill order. */
+    List<Button> inSection(int section) {
         List<Button> out = new ArrayList<>();
         for (Button b : buttons) {
-            if (b.show) {
+            if (b.section == section) {
                 out.add(b);
             }
         }
         return out;
+    }
+
+    /**
+     * Moves a button to {@code section}, before the {@code index}-th button
+     * already there (index past the end = last). The others keep their order.
+     */
+    HotkeyLayout move(Button moved, int section, int index) {
+        List<Button> list = new ArrayList<>(buttons);
+        if (!list.remove(moved)) {
+            return this;
+        }
+        int at = -1, seenInSection = 0, lastInSection = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).section == section) {
+                if (seenInSection++ == index) {
+                    at = i;
+                    break;
+                }
+                lastInSection = i;
+            }
+        }
+        if (at < 0) {
+            at = lastInSection >= 0 ? lastInSection + 1 : list.size();
+        }
+        list.add(at, moved.section == section ? moved : moved.inSection(section));
+        return withButtons(list);
+    }
+
+    /**
+     * Rows of a section, bottom row first: each row is one wide button or up
+     * to {@code cols} buttons. A button alone before a wide one keeps its row.
+     */
+    static List<List<Button>> rows(List<Button> buttons, int cols) {
+        List<List<Button>> rows = new ArrayList<>();
+        for (Button b : buttons) {
+            List<Button> last = rows.isEmpty() ? null : rows.get(rows.size() - 1);
+            if (!b.key.wide && last != null && last.size() < cols && !last.get(0).key.wide) {
+                last.add(b);
+            }
+            else {
+                List<Button> row = new ArrayList<>();
+                row.add(b);
+                rows.add(row);
+            }
+        }
+        return rows;
     }
 
     /** Built-in buttons added in an app update show up at the end of the user's list. */
@@ -151,7 +231,7 @@ final class HotkeyLayout {
             }
             seen.add(b.id);
         }
-        return new HotkeyLayout(buttons, seen);
+        return new HotkeyLayout(buttons, user.cols, seen);
     }
 
     static String readAsset(Context context) throws IOException {
@@ -176,6 +256,7 @@ final class HotkeyLayout {
             return parseLegacy(root);
         }
 
+        boolean v2 = root.optInt("version", VERSION) < 3;
         JSONArray arr = root.getJSONArray("buttons");
         List<Button> buttons = new ArrayList<>();
         Set<String> ids = new HashSet<>();
@@ -185,7 +266,27 @@ final class HotkeyLayout {
             if (id.isEmpty() || !ids.add(id)) {
                 throw new JSONException("button " + (i + 1) + " needs a unique \"id\": " + obj);
             }
-            buttons.add(new Button(id, obj.optBoolean("show", true), specOf(obj)));
+            int section;
+            if (v2) {
+                section = obj.optBoolean("show", true) ? 1 : HIDDEN;
+            }
+            else {
+                section = obj.optInt("section", HIDDEN);
+                if (section < HIDDEN || section > SECTIONS) {
+                    throw new JSONException("\"section\" must be 0 (hidden) to " + SECTIONS + ": " + obj);
+                }
+            }
+            buttons.add(new Button(id, section, specOf(obj)));
+        }
+
+        int[] cols = defaultCols();
+        JSONArray sections = root.optJSONArray("sections");
+        for (int i = 0; sections != null && i < sections.length() && i < SECTIONS; i++) {
+            int c = sections.getJSONObject(i).optInt("cols", DEFAULT_COLS);
+            cols[i] = Math.max(1, Math.min(MAX_COLS, c));
+        }
+        if (v2) {
+            buttons = flowIntoSections(buttons);
         }
 
         Set<String> seen = new LinkedHashSet<>();
@@ -198,14 +299,40 @@ final class HotkeyLayout {
         else {
             seen.addAll(ids);
         }
-        return new HotkeyLayout(buttons, seen);
+        return new HotkeyLayout(buttons, cols, seen);
     }
 
-    /** The button's own fields, without the list bookkeeping (id, show). */
+    /**
+     * Version 2 had one list of shown buttons filling the right column, then
+     * the left, then inner ones. They go into sections 1, 2, ... the way they
+     * filled the S24 in landscape, so the keys stay where they were.
+     */
+    private static List<Button> flowIntoSections(List<Button> buttons) {
+        List<Button> out = new ArrayList<>();
+        List<Button> current = new ArrayList<>();
+        int section = 1;
+        for (Button b : buttons) {
+            if (b.section == HIDDEN) {
+                out.add(b);
+                continue;
+            }
+            current.add(b);
+            if (section < SECTIONS && rows(current, DEFAULT_COLS).size() > V2_ROWS) {
+                current.clear();
+                current.add(b);
+                section++;
+            }
+            out.add(b.inSection(section));
+        }
+        return out;
+    }
+
+    /** The button's own fields, without the list bookkeeping (id, section, show). */
     private static JSONObject specOf(JSONObject obj) throws JSONException {
         JSONObject spec = new JSONObject(obj.toString());
         spec.remove("id");
         spec.remove("show");
+        spec.remove("section");
         return spec;
     }
 
@@ -214,11 +341,16 @@ final class HotkeyLayout {
             JSONObject root = new JSONObject();
             root.put("_doc", "Hotkey overlay layout, written by the in-stream editor. Format: Docs/hotkeys.md");
             root.put("version", VERSION);
+            JSONArray sections = new JSONArray();
+            for (int c : cols) {
+                sections.put(new JSONObject().put("cols", c));
+            }
+            root.put("sections", sections);
             JSONArray arr = new JSONArray();
             for (Button b : buttons) {
                 JSONObject obj = new JSONObject();
                 obj.put("id", b.id);
-                obj.put("show", b.show);
+                obj.put("section", b.section);
                 for (Iterator<String> it = b.spec.keys(); it.hasNext(); ) {
                     String k = it.next();
                     obj.put(k, b.spec.get(k));
@@ -235,8 +367,9 @@ final class HotkeyLayout {
 
     /**
      * Version 1 files (left/right sides with pages and a footer). Converted so
-     * they look as before: each side's footer and first page, bottom-up; the
-     * other pages are kept but hidden.
+     * they look as before: the right side's footer and first page go in
+     * section 1, the left side's in section 2 (bottom-up); the other pages
+     * are kept but hidden.
      */
     private static HotkeyLayout parseLegacy(JSONObject root) throws JSONException {
         List<Button> shown = new ArrayList<>();
@@ -252,14 +385,15 @@ final class HotkeyLayout {
             if (pages != null && pages.length() > 0) {
                 addRowsBottomUp(bottomUp, pages.getJSONObject(0).optJSONArray("rows"));
             }
-            addLegacyRows(bottomUp, true, shown, hidden, sideName);
+            int section = sideName.equals("right") ? 1 : 2;
+            addLegacyRows(bottomUp, section, shown, hidden, sideName);
             for (int p = 1; pages != null && p < pages.length(); p++) {
                 List<JSONArray> rows = new ArrayList<>();
                 JSONArray arr = pages.getJSONObject(p).optJSONArray("rows");
                 for (int r = 0; arr != null && r < arr.length(); r++) {
                     rows.add(arr.getJSONArray(r));
                 }
-                addLegacyRows(rows, false, shown, hidden, sideName);
+                addLegacyRows(rows, HIDDEN, shown, hidden, sideName);
             }
         }
         List<Button> all = new ArrayList<>(shown);
@@ -267,7 +401,7 @@ final class HotkeyLayout {
         // Its buttons have their own ids: don't add the built-in ones next to them
         Set<String> seen = new LinkedHashSet<>();
         seen.add(SEEN_ALL);
-        return new HotkeyLayout(all, seen);
+        return new HotkeyLayout(all, defaultCols(), seen);
     }
 
     private static void addRowsBottomUp(List<JSONArray> out, JSONArray rows) throws JSONException {
@@ -276,7 +410,7 @@ final class HotkeyLayout {
         }
     }
 
-    private static void addLegacyRows(List<JSONArray> rows, boolean show, List<Button> shown,
+    private static void addLegacyRows(List<JSONArray> rows, int section, List<Button> shown,
                                       List<Button> hidden, String side) throws JSONException {
         for (JSONArray row : rows) {
             for (int k = 0; k < row.length(); k++) {
@@ -285,8 +419,8 @@ final class HotkeyLayout {
                 if (row.length() == 1) {
                     spec.put("wide", true);
                 }
-                List<Button> out = show ? shown : hidden;
-                out.add(new Button(side + "_" + (shown.size() + hidden.size()), show, spec));
+                List<Button> out = section != HIDDEN ? shown : hidden;
+                out.add(new Button(side + "_" + (shown.size() + hidden.size()), section, spec));
             }
         }
     }

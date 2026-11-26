@@ -16,21 +16,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * One column of the overlay. Rows are given bottom-up (the order buttons
- * fill in) and drawn top to bottom; a row holds one wide key or two keys.
- * The first column also carries the toolbar (settings, hide) above its keys.
+ * One section of the overlay. Rows are given bottom-up (the order buttons
+ * fill in) and drawn top to bottom; a row holds one wide key or up to the
+ * section's keys per row. Section 1 also carries the toolbar (settings,
+ * hide) above its keys.
  */
 @SuppressLint("ViewConstructor")
 final class HotkeyColumn extends LinearLayout {
     static final int TOOLBAR_DP = 24;
 
+    /** 1..HotkeyLayout.SECTIONS */
+    final int section;
     final int accent;
     private final HotkeyKeyView.Listener listener;
     private final List<HotkeyKeyView> keys = new ArrayList<>();
     private final List<HotkeyLayout.Button> buttons = new ArrayList<>();
 
-    HotkeyColumn(Context context, int accent, HotkeyKeyView.Listener listener) {
+    HotkeyColumn(Context context, int section, int accent, HotkeyKeyView.Listener listener) {
         super(context);
+        this.section = section;
         this.accent = accent;
         this.listener = listener;
         setOrientation(VERTICAL);
@@ -42,7 +46,7 @@ final class HotkeyColumn extends LinearLayout {
         return keys;
     }
 
-    /** The buttons in this column, in fill order (bottom row first). */
+    /** The buttons in this section on screen, in fill order (bottom row first). */
     List<HotkeyLayout.Button> buttons() {
         return buttons;
     }

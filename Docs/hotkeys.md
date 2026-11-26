@@ -14,12 +14,17 @@ the on-screen controller off (upstream's controller is landscape-only).
 
 - **Keys** send their shortcut while your finger is down. Holding a single
   shortcut, like an arrow key, auto-repeats on the PC.
-- **One list, filled bottom-up.** All buttons are one ordered list; each is
-  shown or hidden. Shown buttons fill the **right column from the bottom
-  up**, then the **left column**, then inner columns (over the video in
-  landscape). Two keys per row; a *wide* key takes a whole row (a key alone
-  before a wide one, or at the end, also fills its row).
-- **⚙** (toolbar above the right column) opens the editor, **▾** hides all
+- **Five sections.** Every button is in one of five sections or hidden.
+  A section is a block of keys you can put anywhere on screen; each has its
+  own colour (1 green, 2 cyan, 3 purple, 4 orange, 5 pink: key hints, the
+  editor and arrange mode use it). By default section 1 is the right
+  letterbox bar, 2 the left one, 3–5 are empty (their default spots are
+  further in, over the video). A section fills **from the bottom up**, two
+  keys per row by default (1–6, set per section); a *wide* key takes a
+  whole row (a key alone before a wide one, or at the end, also fills its
+  row). Keys that don't fit the screen height aren't shown (the editor and
+  arrange mode say so). Empty sections take no room and no touches.
+- **⚙** (toolbar on top of section 1) opens the editor, **▾** hides all
   keys. A slim tab stays at the right edge; tap it to bring them back.
 - **Sticky modifiers** (Super, Ctrl, Alt, Shift):
   - tap: applies to the next key only (outline + dot),
@@ -36,34 +41,45 @@ the on-screen controller off (upstream's controller is landscape-only).
 ### Portrait
 
 Turn the phone: the stream is fitted to the screen width at the top and the
-keys fill the bottom half (3 columns on the S24, filled right, left, then
-middle). The editor's "Portrait: keys above the stream" swaps the halves.
+keys fill the bottom half: sections 1–3 side by side on the S24 (right,
+left, middle), 4 and 5 stacked on top of 1 and 2. The editor's "Portrait: keys above the stream" swaps the halves.
 ▾ hides the keys and centres the stream. In absolute-touch mode the empty
 part of the key half ignores touches (no accidental clicks); in trackpad
 mode (Moonlight's default) it works as a touchpad.
 
 ### Editor (⚙)
 
-- **☑** shows/hides a button. Built-in extras start hidden: digits 0–9 and
-  the old Move / Nav / Pane / Vim pages.
-- **≡** drag to reorder. The top of the list is the bottom-right key. Each
-  row's badge says where it lands now: `R1` right column, `L1` left, `R2`
-  / `L2` inner ones, `Mid` (portrait), or `no room`.
-- **+ New hotkey** / tap a row: label, small text, keys (e.g.
-  `Ctrl+Shift+T`; chips insert modifiers and key names), wide, shown. The
-  dialog checks the keys as you type ("Sends ^⇧T"). New keys go right after
-  the last shown one. **Delete** removes a key; **Reset buttons to default**
-  brings back the built-in list.
+The **section board** shows each section as a card drawn like it looks on
+screen (top row on top, same keys per row, same colour), plus a **Hidden**
+card with every hidden button. Built-in extras start hidden: digits 0–9
+and the old Move / Nav / Pane / Vim pages.
+
+- **Hold a key and drag it** (a short hold, then move): drop it on the
+  left or right half of another key to go before / after it, on a
+  section's free space to go on top of that section, or on Hidden. The
+  white bar shows where it lands; the board scrolls near its edges.
+- **Tap a key** to edit it: label, small text, keys (e.g. `Ctrl+Shift+T`;
+  chips insert modifiers and key names), wide, and its **section** (Hidden,
+  1–5). The dialog checks the keys as you type ("Sends ^⇧T"). Moving it to
+  another section puts it on top there. **Delete** removes it.
+- On a card: **＋** (filled, section colour) adds a new hotkey to that
+  section, **− n +** sets its keys per row. The card's info line says how
+  many rows fit on this screen; rows past that are below a red "no room
+  on screen" line.
+- **+ New hotkey** adds one to section 1. **Reset buttons to default**
+  brings back the built-in sections and keys.
 - Key height (30–72 dp, default 42), opacity, keys above/below the stream in
-  portrait, reset column positions.
-- **✥ Arrange on screen**: drag a key onto another to swap them, or above a
-  column to put it on top of that column, or onto "Drop here to hide". Drag
-  a column's ⠿ grip to move the whole column (saved per orientation;
-  "Reset positions" puts them back). Keys don't send anything while
-  arranging.
+  portrait, **Reset section positions**.
+- **✥ Arrange on screen**: every section gets an outline and a ⠿ grip in
+  its colour; empty sections show as dashed "empty" boxes. Drag a key to
+  any spot in any section (same rules as the board), or onto "Drop here to
+  hide". Drag a ⠿ grip to move the whole section (saved per orientation;
+  "Reset spots" puts them back). A grip says "+N off screen" when keys of
+  that section don't fit. **⚙ Keys** goes to the editor. Keys don't send
+  anything while arranging.
 
 Everything is saved at once to `hotkeys.json` (below) and the overlay updates
-live. Column positions, key height, the portrait swap and the hidden state
+live. Section positions, key height, the portrait swap and the hidden state
 are in the `hotkey_overlay` shared preferences.
 
 ## Default layout
@@ -71,17 +87,18 @@ are in the `hotkey_overlay` shared preferences.
 `app/src/main/assets/hotkeys/default.json`, taken from `~/.dotfiles`. The
 shown keys reproduce the old two-sided look in landscape:
 
-| Column (bottom → top) | Keys |
+| Section (bottom → top) | Keys |
 | --- | --- |
-| Right | ⌨ kbd / ⏎ Enter, Esc / Tab, then tmux: files (Ctrl+P) / yazi (Alt+B), session picker (Alt+E) / last session (Alt+K), tab 5 (prefix j) / last tab (Alt+J), tabs 3/4, tabs 1/2 (prefix u/i/o/p), new/close tab (Alt+T/W) |
-| Left | Alt / Shift, Super / Ctrl (sticky), fullscreen / close, last/next window, tag 5 (Super+2*) / Spotify (Super+Y), tags 3/4, tags 1/2 (Super+U/I/O/P), Apps (rofi, Ctrl+Space, wide) |
+| 1 (right) | ⌨ kbd / ⏎ Enter, Esc / Tab, then tmux: files (Ctrl+P) / yazi (Alt+B), session picker (Alt+E) / last session (Alt+K), tab 5 (prefix j) / last tab (Alt+J), tabs 3/4, tabs 1/2 (prefix u/i/o/p), new/close tab (Alt+T/W) |
+| 2 (left) | Alt / Shift, Super / Ctrl (sticky), fullscreen / close, last/next window, tag 5 (Super+2*) / Spotify (Super+Y), tags 3/4, tags 1/2 (Super+U/I/O/P), Apps (rofi, Ctrl+Space, wide) |
+| 3–5 | empty |
 | Hidden | digits 0–9; Move: move window to tag 1–4, master/swap, float, other screen, wider/thinner, layout, area screenshot; Nav: arrows, PgUp/PgDn, Home/End, Backspace/Delete, Ctrl+C/D; Pane: sessions 1–5 (prefix 1–5), copy mode, split, select/break/kill pane, bare prefix (Alt+R); Vim: save, quit all (␣o), alt/prev buffer, half-page up/down, undo/redo, delete buffer, no highlight, `:` and `/` |
 
 \* rc.lua binds tags with `"#" .. i + 6`. Lua evaluates that as keycode
 `i + 6`, so tag 5 is on Super+2 (X keycode 11), not Super+5.
 
-Built-in buttons added to `default.json` later appear at the end of an
-existing user list (shown or hidden as in the default). Deleted built-ins
+Built-in buttons added to `default.json` later appear on top of their
+default section in an existing user list (or hidden, as in the default). Deleted built-ins
 stay deleted: the file remembers which built-in ids it has `seen`.
 
 ## hotkeys.json
@@ -118,20 +135,28 @@ device like a real stream: `adb emu rotate` switches portrait/landscape.
 
 ```json
 {
-  "version": 2,
+  "version": 3,
+  "sections": [{"cols": 2}, {"cols": 2}, {"cols": 3}, {"cols": 2}, {"cols": 2}],
   "buttons": [
-    {"id": "esc", "show": true, "label": "Esc", "hint": "", "keys": "Escape"},
-    {"id": "wm_apps", "show": true, "label": "Apps", "hint": "rofi", "keys": "Ctrl+Space", "wide": true}
+    {"id": "esc", "section": 1, "label": "Esc", "hint": "", "keys": "Escape"},
+    {"id": "wm_apps", "section": 2, "label": "Apps", "hint": "rofi", "keys": "Ctrl+Space", "wide": true},
+    {"id": "num_0", "section": 0, "label": "0", "keys": "0"}
   ],
-  "seen": ["esc", "wm_apps"]
+  "seen": ["esc", "wm_apps", "num_0"]
 }
 ```
 
-Order = fill order (first = bottom-right). Every button needs a unique `id`;
-`show` defaults to true, `wide` to false. `seen` is optional (default: the
-ids in the file). Old version 1 files (`left`/`right` sides with `pages` and
-a `footer`) still load: each side's footer and first page are shown
-bottom-up, the other pages hidden.
+`section`: 1–5, or 0 = hidden (the default). Within a section, list order
+= fill order (first = bottom row, left). `sections[i].cols` = keys per row
+of section i+1 (1–6, default 2; the list is optional). Every button needs
+a unique `id`; `wide` defaults to false. `seen` is optional (default: the
+ids in the file). Older files still load:
+
+- version 2 (one list with `show`): shown buttons go into sections 1, 2, …
+  8 rows each, the way they filled the S24 in landscape, so keys stay put;
+- version 1 (`left`/`right` sides with `pages` and a `footer`): the right
+  side's footer and first page go in section 1, the left side's in
+  section 2, the other pages hidden.
 
 A button is one of:
 
@@ -155,23 +180,28 @@ positions, like the rest of Moonlight.
 
 Package `com.limelight.hotkeys`, all fork-only:
 
-- `HotkeyLayout`: JSON model (ordered `Button` list, `seen` ids), parser and
-  writer, version 1 conversion, merge with new built-ins, key-name → Windows
-  VK table.
+- `HotkeyLayout`: JSON model (ordered `Button` list with sections, keys per
+  row, `seen` ids), `move()` (to a section and position), `rows()` (the
+  bottom-up fill of one section), parser and writer, version 1/2
+  conversion, merge with new built-ins, key-name → Windows VK table.
 - `HostKeyboard`: sends key packets. Modifiers are reference-counted, so a
   sticky Super, a finger holding Super and a `Super+U` key give the host
   one press and one release.
-- `HotkeyOverlay`: sticky-modifier state machine; layout: column slots
-  (landscape: letterbox bars then inward; portrait: even grid in the key
-  half), the bottom-up fill, stream placement in portrait, display-cutout and
-  gesture-exclusion insets; saves `hotkeys.json`; column offsets.
+- `HotkeyOverlay`: sticky-modifier state machine; layout: default column
+  slots (landscape: letterbox bars then inward; portrait: even grid in the
+  key half, extra sections stacked), one view per section (empty ones are
+  invisible and pass touches through), rows that fit, stream placement in
+  portrait, display-cutout and gesture-exclusion insets; saves
+  `hotkeys.json`; section offsets (`off_l<k>` / `off_p<k>`, k = section − 1).
 - `HotkeyColumn` (+ `Toolbar`, `Handle`) / `HotkeyKeyView`: the views
-  (custom-drawn, Dracula colours).
-- `HotkeyEditor`: the ⚙ dialog, its drag-to-reorder list and the hotkey
-  dialog (views built in code, theme `HotkeyEditorTheme` in
-  `res/values/styles_fork.xml`).
-- `HotkeyArrangeLayer`: full-screen layer for arrange mode (key swap, column
-  drag, hide drop zone).
+  (custom-drawn, Dracula colours). A `HotkeyColumn` is one section.
+- `HotkeyEditor`: the ⚙ dialog and the hotkey dialog (views built in code,
+  theme `HotkeyEditorTheme` in `res/values/styles_fork.xml`).
+- `HotkeySectionBoard`: the editor's custom-drawn section board (cards,
+  hold-and-drag between sections, keys-per-row and add buttons,
+  auto-scroll).
+- `HotkeyArrangeLayer`: full-screen layer for arrange mode (key drop at any
+  spot, section drag, hide drop zone).
 - `StreamRotation`: the orientation Game requests (Settings → Screen
   rotation).
 - Keys avoid the display cutout's safe inset. On phones with a punch-hole
@@ -191,5 +221,7 @@ key-up, `StreamRotation.requested()` instead of the fixed landscape in
 (the Hotkey Overlay category). Strings are in `res/values/strings_fork.xml`.
 
 Tested on the S24-sized emulator (preview activity): landscape and portrait
-fill, keys above/below, hide/show, sticky modifiers, editor reorder/toggle/new
-hotkey, arrange-mode swap and column drag, version 1 file conversion.
+sections (stacking in portrait), keys above/below, board drag between
+sections, into an empty section and out of Hidden, reorder with
+auto-scroll, keys per row, the dialog's section picker, arrange-mode key
+drop / section drag / off-screen count, version 1 and 2 file conversion.

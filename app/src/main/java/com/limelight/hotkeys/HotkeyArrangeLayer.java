@@ -16,9 +16,10 @@ import java.util.List;
 
 /**
  * Full-screen layer shown while arranging the hotkeys. It takes every touch
- * (nothing reaches the keys or the PC): drag a key onto another key to swap
- * them, onto the empty space above a column to put it at that column's
- * top, or onto "Hide"; drag a column by its grip (⠿) to move the column.
+ * (nothing reaches the keys or the PC): drag a key to any spot in any
+ * section (left/right half of a key = before/after it; a section's empty
+ * space or the space above it = its top), or onto "Hide"; drag a section by
+ * its grip (⠿) to move it. Empty sections show as dashed boxes.
  */
 @SuppressLint("ViewConstructor")
 final class HotkeyArrangeLayer extends View {
@@ -34,6 +35,7 @@ final class HotkeyArrangeLayer extends View {
 
     private final RectF doneRect = new RectF();
     private final RectF resetRect = new RectF();
+    private final RectF editorRect = new RectF();
     private final RectF hideRect = new RectF();
 
     // Drag state
@@ -42,7 +44,10 @@ final class HotkeyArrangeLayer extends View {
     private int column = -1;
     private HotkeyLayout.Button dragged;
     private float downX, downY, startTx, startTy, x, y;
-    private HotkeyLayout.Button target;
+    /** Drop target: section view, index in it (without the dragged key), the key it goes next to. */
+    private HotkeyColumn targetColumn;
+    private int targetIndex;
+    private HotkeyLayout.Button targetKey;
     private boolean targetAfter;
     private boolean overHide;
 
@@ -97,39 +102,63 @@ final class HotkeyArrangeLayer extends View {
             HotkeyColumn c = columns.get(i);
             boundsOf(c, tmp);
             tmp.inset(-2 * dp, -2 * dp);
+            boolean empty = c.buttons().isEmpty();
+            boolean dropHere = mode == KEY && targetColumn == c;
+            if (empty || dropHere) {
+                fill.setColor(withAlpha(c.accent, dropHere ? 0x50 : 0x22));
+                canvas.drawRoundRect(tmp, 10 * dp, 10 * dp, fill);
+            }
             outline.setColor(c.accent);
             canvas.drawRoundRect(tmp, 10 * dp, 10 * dp, outline);
+            if (empty) {
+                // Section 1's toolbar sits above its (empty) row
+                rowRect.set(tmp.left, tmp.bottom - overlay.keyHeightPx(), tmp.right, tmp.bottom);
+                small.setColor(c.accent);
+                drawCentered(canvas, "empty", rowRect, small);
+                small.setColor(0xDDF8F8F2);
+            }
 
             gripOf(c, tmp);
+            int off = overlay.overflow(c.section);
+            if (off > 0) {
+                // Keys pushed past the screen's room: say so next to the grip
+                small.setColor(0xFFFF5555);
+                small.setTextAlign(Paint.Align.LEFT);
+                boolean leftOfGrip = tmp.centerX() > getWidth() / 2f;
+                String s = "+" + off + " off screen";
+                float sx = leftOfGrip ? tmp.left - 6 * dp - small.measureText(s) : tmp.right + 6 * dp;
+                canvas.drawText(s, sx, tmp.centerY() + 4 * dp, small);
+                small.setTextAlign(Paint.Align.CENTER);
+                small.setColor(0xDDF8F8F2);
+            }
             fill.setColor(mode == COLUMN && column == i ? c.accent : withAlpha(c.accent, 0xB0));
             canvas.drawRoundRect(tmp, tmp.height() / 2, tmp.height() / 2, fill);
             text.setColor(HotkeyKeyView.TEXT_DARK);
-            drawCentered(canvas, "⠿ " + overlay.columnName(i), tmp, text);
+            drawCentered(canvas, "⠿ " + c.section, tmp, text);
         }
 
         // Where the dragged key will go
-        if (mode == KEY && target != null) {
-            for (HotkeyColumn c : columns) {
-                HotkeyKeyView v = c.viewFor(target);
-                if (v != null) {
-                    boundsOf(v, tmp);
-                    outline.setColor(HotkeyKeyView.MOD);
-                    outline.setPathEffect(null);
-                    outline.setStrokeWidth(3 * dp);
-                    if (targetAfter) {
-                        // Goes above the column's top key
-                        canvas.drawLine(tmp.left, tmp.top - 3 * dp, tmp.right, tmp.top - 3 * dp, outline);
-                    }
-                    else {
-                        canvas.drawRoundRect(tmp, 8 * dp, 8 * dp, outline);
-                    }
-                    outline.setStrokeWidth(1.5f * dp);
-                    outline.setPathEffect(new DashPathEffect(new float[]{6 * dp, 4 * dp}, 0));
-                }
+        if (mode == KEY && targetColumn != null) {
+            outline.setColor(0xFFF8F8F2);
+            outline.setPathEffect(null);
+            outline.setStrokeWidth(3 * dp);
+            HotkeyKeyView v = targetKey != null ? targetColumn.viewFor(targetKey) : null;
+            if (v != null) {
+                boundsOf(v, tmp);
+                float lx = targetAfter ? tmp.right + dp : tmp.left - dp;
+                canvas.drawLine(lx, tmp.top, lx, tmp.bottom, outline);
             }
+            else {
+                // Top of the section (or into an empty one)
+                boundsOf(targetColumn, tmp);
+                float ly = targetColumn.buttons().isEmpty() ? tmp.bottom - overlay.keyHeightPx() / 2f : keysTop(targetColumn) - 3 * dp;
+                canvas.drawLine(tmp.left + 4 * dp, ly, tmp.right - 4 * dp, ly, outline);
+            }
+            outline.setStrokeWidth(1.5f * dp);
+            outline.setPathEffect(new DashPathEffect(new float[]{6 * dp, 4 * dp}, 0));
         }
 
-        // Top bar: help text, Reset, Done (and Hide while dragging a key)
+        // Top bar: Keys (editor), Reset, Done; while dragging a key: Hide
         float cx = getWidth() / 2f;
         float bh = 34 * dp;
         // Keys above the stream (portrait): the bar goes over the stream, at the bottom
@@ -142,19 +171,22 @@ final class HotkeyArrangeLayer extends View {
             drawCentered(canvas, "✕  Drop here to hide", hideRect, text);
         }
         else {
-            resetRect.set(cx - 150 * dp, barTop, cx - 6 * dp, barTop + bh);
-            doneRect.set(cx + 6 * dp, barTop, cx + 150 * dp, barTop + bh);
+            float w = Math.min(110 * dp, (getWidth() - 40 * dp) / 3);
+            editorRect.set(cx - 1.5f * w - 8 * dp, barTop, cx - 0.5f * w - 8 * dp, barTop + bh);
+            resetRect.set(cx - 0.5f * w, barTop, cx + 0.5f * w, barTop + bh);
+            doneRect.set(cx + 0.5f * w + 8 * dp, barTop, cx + 1.5f * w + 8 * dp, barTop + bh);
             fill.setColor(0xE044475A);
+            canvas.drawRoundRect(editorRect, bh / 2, bh / 2, fill);
             canvas.drawRoundRect(resetRect, bh / 2, bh / 2, fill);
             fill.setColor(0xF0BD93F9);
             canvas.drawRoundRect(doneRect, bh / 2, bh / 2, fill);
             text.setColor(0xFFF8F8F2);
-            drawCentered(canvas, "Reset positions", resetRect, text);
+            drawCentered(canvas, "⚙  Keys", editorRect, text);
+            drawCentered(canvas, "Reset spots", resetRect, text);
             text.setColor(HotkeyKeyView.TEXT_DARK);
             drawCentered(canvas, "✓  Done", doneRect, text);
-            canvas.drawText("Drag a key onto another to swap them, or above a column to put it on top",
-                    cx, barTop + bh + 18 * dp, small);
-            canvas.drawText("Drag ⠿ to move a column", cx, barTop + bh + 34 * dp, small);
+            canvas.drawText("Drag a key to any spot, in any section", cx, barTop + bh + 18 * dp, small);
+            canvas.drawText("Drag ⠿ to move a section", cx, barTop + bh + 34 * dp, small);
         }
 
         // The key under the finger, drawn a bit above it so it stays visible
@@ -171,6 +203,21 @@ final class HotkeyArrangeLayer extends View {
             drawCentered(canvas, dragged.key.label, tmp, text);
         }
     }
+
+    /** Top of a section's keys (below section 1's toolbar). */
+    private float keysTop(HotkeyColumn c) {
+        boundsOf(c, tmp2);
+        float top = tmp2.bottom;
+        for (HotkeyKeyView v : c.keyViews()) {
+            boundsOf(v, tmp3);
+            top = Math.min(top, tmp3.top);
+        }
+        return top;
+    }
+
+    private final RectF tmp2 = new RectF();
+    private final RectF rowRect = new RectF();
+    private final RectF tmp3 = new RectF();
 
     private static void drawCentered(Canvas canvas, String s, RectF r, Paint p) {
         Paint.FontMetrics fm = p.getFontMetrics();
@@ -230,6 +277,12 @@ final class HotkeyArrangeLayer extends View {
             invalidate();
             return;
         }
+        if (editorRect.contains(x, y)) {
+            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            overlay.stopArranging();
+            overlay.onSettings();
+            return;
+        }
         List<HotkeyColumn> columns = overlay.columns();
         for (int i = 0; i < columns.size(); i++) {
             gripOf(columns.get(i), tmp);
@@ -248,7 +301,7 @@ final class HotkeyArrangeLayer extends View {
         if (hit != null) {
             mode = KEY;
             dragged = hit;
-            target = null;
+            targetColumn = null;
             performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
             invalidate();
         }
@@ -264,14 +317,14 @@ final class HotkeyArrangeLayer extends View {
                 overlay.hideButton(dragged);
                 performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             }
-            else if (target != null) {
-                overlay.moveButton(dragged, target, targetAfter);
+            else if (targetColumn != null) {
+                overlay.moveButton(dragged, targetColumn.section, targetIndex);
                 performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             }
         }
         mode = NONE;
         dragged = null;
-        target = null;
+        targetColumn = null;
         overHide = false;
         invalidate();
     }
@@ -291,30 +344,57 @@ final class HotkeyArrangeLayer extends View {
         return null;
     }
 
-    /** The key under the finger, or the top of a column when above its keys. */
+    /**
+     * The drop spot under the finger: next to a key (left half = before it,
+     * right half = after), or the top of a section when over its free space
+     * or just above it.
+     */
     private void findTarget() {
         overHide = hideRect.contains(x, y);
-        target = null;
-        targetAfter = false;
-        if (overHide) {
-            return;
+        HotkeyColumn oldColumn = targetColumn;
+        int oldIndex = targetIndex;
+        targetColumn = null;
+        targetKey = null;
+        if (!overHide) {
+            findSpot();
         }
-        HotkeyLayout.Button hit = buttonAt(x, y);
-        if (hit != null) {
-            target = hit == dragged ? null : hit;
-            return;
+        if (targetColumn != oldColumn || targetIndex != oldIndex) {
+            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        }
+    }
+
+    private void findSpot() {
+        if (buttonAt(x, y) == dragged) {
+            return; // over its own spot: stays put
         }
         List<HotkeyColumn> columns = overlay.columns();
-        for (int i = 0; i < columns.size(); i++) {
-            HotkeyColumn c = columns.get(i);
-            boundsOf(c, tmp);
+        for (HotkeyColumn c : columns) {
             List<HotkeyLayout.Button> buttons = c.buttons();
-            if (x >= tmp.left && x <= tmp.right && y < tmp.top + 24 * dp && !buttons.isEmpty()) {
-                HotkeyLayout.Button top = buttons.get(buttons.size() - 1);
-                if (top != dragged) {
-                    target = top;
-                    targetAfter = true;
+            int index = 0;
+            for (HotkeyLayout.Button b : buttons) {
+                if (b == dragged) {
+                    continue; // indexes count the section without the dragged key
                 }
+                HotkeyKeyView v = c.viewFor(b);
+                if (v != null) {
+                    boundsOf(v, tmp);
+                    if (tmp.contains(x, y)) {
+                        targetColumn = c;
+                        targetKey = b;
+                        targetAfter = x > tmp.centerX();
+                        targetIndex = index + (targetAfter ? 1 : 0);
+                        return;
+                    }
+                }
+                index++;
+            }
+        }
+        // Over a section's free space (or a bit above it): its top
+        for (HotkeyColumn c : columns) {
+            boundsOf(c, tmp);
+            if (x >= tmp.left && x <= tmp.right && y >= tmp.top - 30 * dp && y <= tmp.bottom) {
+                targetColumn = c;
+                targetIndex = Integer.MAX_VALUE;
                 return;
             }
         }

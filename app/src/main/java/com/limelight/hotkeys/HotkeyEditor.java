@@ -40,10 +40,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The overlay's ⚙ screen: choose which buttons are shown (checkbox), put
- * them in order (drag ≡), add and edit hotkeys, key size, opacity, and the
- * portrait arrangement. Every change is saved to hotkeys.json and shown on
- * the overlay right away.
+ * The overlay's ⚙ screen: the section board (drag keys between the five
+ * sections and Hidden, keys per row, add and edit hotkeys), key size,
+ * opacity, and the portrait arrangement. Every change is saved to
+ * hotkeys.json and shown on the overlay right away.
  */
 final class HotkeyEditor extends Dialog {
     private static final int BG = 0xFF22232E;
@@ -61,9 +61,7 @@ final class HotkeyEditor extends Dialog {
     private final Context ctx;
     private final float dp;
 
-    private ReorderList list;
-    private TextView countText;
-    private final Map<String, TextView> badges = new HashMap<>();
+    private HotkeySectionBoard board;
 
     HotkeyEditor(Activity activity, HotkeyOverlay overlay) {
         super(activity, R.style.HotkeyEditorTheme);
@@ -73,7 +71,6 @@ final class HotkeyEditor extends Dialog {
         this.dp = activity.getResources().getDisplayMetrics().density;
         setContentView(buildContent());
         setOnDismissListener(d -> overlay.onEditorClosed());
-        rebuildList();
     }
 
     private int px(float dps) {
@@ -140,13 +137,9 @@ final class HotkeyEditor extends Dialog {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(0, px(8), 0, px(8));
 
-        TextView how = text("Shown buttons fill the right column from the bottom up, then the left column, " +
-                "then inner columns. The top of the list is the bottom-right key.", 13, DIM);
-        box.addView(how, matchWrap());
-
         // Key size
         final TextView sizeLabel = text("", 14, TEXT);
-        box.addView(sizeLabel, topMargin(matchWrap(), 12));
+        box.addView(sizeLabel, matchWrap());
         SeekBar size = new SeekBar(ctx);
         size.setMax(HotkeyOverlay.MAX_KEY_HEIGHT_DP - HotkeyOverlay.MIN_KEY_HEIGHT_DP);
         size.setProgress(overlay.keyHeightDp() - HotkeyOverlay.MIN_KEY_HEIGHT_DP);
@@ -158,7 +151,7 @@ final class HotkeyEditor extends Dialog {
                 sizeLabel.setText("Key height: " + value + " dp");
                 if (fromUser) {
                     overlay.setKeyHeightDp(value);
-                    refreshBadges();
+                    board.refresh();
                 }
             }
         });
@@ -191,26 +184,26 @@ final class HotkeyEditor extends Dialog {
         above.setChecked(overlay.keysAbove());
         above.setOnCheckedChangeListener((b, checked) -> {
             overlay.setKeysAbove(checked);
-            refreshBadges();
+            board.refresh();
         });
         box.addView(above, topMargin(matchWrap(), 12));
         box.addView(text("Turn the phone to portrait: the stream goes in one half, the keys in the other. " +
                 "▾ on the keys hides them; the stream then uses the whole screen.", 12, DIM), matchWrap());
 
-        Button resetPos = button("Reset column positions", CYAN);
+        Button resetPos = button("Reset section positions", CYAN);
         resetPos.setOnClickListener(v -> {
             overlay.resetPositions();
-            Toast.makeText(activity, "Columns are back in place", Toast.LENGTH_SHORT).show();
+            Toast.makeText(activity, "Sections are back in their default spots", Toast.LENGTH_SHORT).show();
         });
         box.addView(resetPos, topMargin(matchWrap(), 16));
 
         Button resetAll = button("Reset buttons to default", RED);
         resetAll.setOnClickListener(v -> new AlertDialog.Builder(activity, R.style.HotkeyDialogTheme)
                 .setTitle("Reset buttons?")
-                .setMessage("Your order, shown/hidden choices and own hotkeys are replaced by the built-in list.")
+                .setMessage("Your sections, order, keys per row and own hotkeys are replaced by the built-in list.")
                 .setPositiveButton("Reset", (d, w) -> {
                     overlay.resetLayout();
-                    rebuildList();
+                    board.refresh();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show());
@@ -225,84 +218,43 @@ final class HotkeyEditor extends Dialog {
 
         LinearLayout head = new LinearLayout(ctx);
         head.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout titles = new LinearLayout(ctx);
-        titles.setOrientation(LinearLayout.VERTICAL);
-        TextView t = text("Buttons", 16, TEXT);
+        TextView t = text("Sections", 16, TEXT);
         t.setTypeface(Typeface.DEFAULT_BOLD);
-        titles.addView(t);
-        countText = text("", 12, DIM);
-        titles.addView(countText);
-        head.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        head.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
         Button add = button("+ New hotkey", GREEN);
-        add.setOnClickListener(v -> editButton(null));
+        add.setOnClickListener(v -> editButton(null, 1));
         head.addView(add);
         box.addView(head, matchWrap());
 
-        box.addView(text("☑ = shown · drag ≡ to reorder · tap a row to edit · badge = column (R1 = right, L1 = left)",
-                12, DIM), topMargin(matchWrap(), 4));
+        box.addView(text("Hold a key and drag it: to another spot, another section or Hidden. Tap a key to edit it. " +
+                "− / + = keys per row, ＋ = new key in that section. Colours match the keys on screen; " +
+                "move the sections themselves with ✥ Arrange on screen.", 12, DIM), topMargin(matchWrap(), 4));
 
-        list = new ReorderList(ctx, (from, to) -> {
-            List<HotkeyLayout.Button> buttons = new ArrayList<>(overlay.currentLayout().buttons);
-            buttons.add(to, buttons.remove(from));
-            overlay.setLayout(new HotkeyLayout(buttons, overlay.currentLayout().seen));
-            refreshBadges();
+        board = new HotkeySectionBoard(ctx, overlay, new HotkeySectionBoard.Listener() {
+            @Override
+            public void onEdit(HotkeyLayout.Button button) {
+                editButton(button.id, button.section);
+            }
+
+            @Override
+            public void onAdd(int section) {
+                editButton(null, section);
+            }
+
+            @Override
+            public void onMove(HotkeyLayout.Button button, int section, int index) {
+                overlay.setLayout(overlay.currentLayout().move(button, section, index));
+                board.refresh();
+            }
+
+            @Override
+            public void onCols(int section, int cols) {
+                overlay.setLayout(overlay.currentLayout().withCols(section, cols));
+                board.refresh();
+            }
         });
-        box.addView(list, topMargin(matchWrap(), 8));
+        box.addView(board, topMargin(matchWrap(), 10));
         return box;
-    }
-
-    // ---- Button list ----
-
-    private void rebuildList() {
-        list.removeAllViews();
-        badges.clear();
-        for (HotkeyLayout.Button b : overlay.currentLayout().buttons) {
-            list.addView(buildRow(b), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(ReorderList.ROW_DP)));
-        }
-        refreshBadges();
-    }
-
-    private View buildRow(final HotkeyLayout.Button b) {
-        LinearLayout row = new LinearLayout(ctx);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, px(2), px(8), px(2));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(CARD);
-        bg.setCornerRadius(px(10));
-        row.setBackground(new android.graphics.drawable.InsetDrawable(bg, 0, px(2), 0, px(2)));
-
-        TextView grip = text("≡", 24, DIM);
-        grip.setGravity(Gravity.CENTER);
-        grip.setTag(ReorderList.HANDLE);
-        row.addView(grip, new LinearLayout.LayoutParams(px(ReorderList.HANDLE_DP), ViewGroup.LayoutParams.MATCH_PARENT));
-
-        CheckBox show = new CheckBox(ctx);
-        show.setChecked(b.show);
-        show.setOnCheckedChangeListener((v, checked) -> setShown(b.id, checked));
-        row.addView(show, wrap());
-
-        LinearLayout texts = new LinearLayout(ctx);
-        texts.setOrientation(LinearLayout.VERTICAL);
-        String ownHint = b.spec.optString("hint", "");
-        TextView label = text(b.key.label + (ownHint.isEmpty() ? "" : "  · " + ownHint), 15, TEXT);
-        label.setSingleLine(true);
-        texts.addView(label);
-        TextView sub = text(describeAction(b), 12, DIM);
-        sub.setSingleLine(true);
-        texts.addView(sub);
-        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1);
-        tlp.leftMargin = px(4);
-        row.addView(texts, tlp);
-
-        TextView badge = text("", 12, TEXT);
-        badge.setGravity(Gravity.CENTER);
-        badge.setPadding(px(6), px(2), px(6), px(2));
-        badge.setMinWidth(px(40));
-        row.addView(badge, wrap());
-        badges.put(b.id, badge);
-
-        row.setOnClickListener(v -> editButton(b.id));
-        return row;
     }
 
     private static String describeAction(HotkeyLayout.Button b) {
@@ -316,58 +268,10 @@ final class HotkeyEditor extends Dialog {
         }
     }
 
-    private void setShown(String id, boolean value) {
-        HotkeyLayout layout = overlay.currentLayout();
-        int i = layout.indexOf(id);
-        if (i < 0 || layout.buttons.get(i).show == value) {
-            return;
-        }
-        List<HotkeyLayout.Button> buttons = new ArrayList<>(layout.buttons);
-        buttons.set(i, buttons.get(i).withShow(value));
-        overlay.setLayout(new HotkeyLayout(buttons, layout.seen));
-        refreshBadges();
-    }
-
-    /** Column badges and the "x shown" count follow the overlay's current fill. */
-    private void refreshBadges() {
-        Map<String, Integer> placement = overlay.placement();
-        int shown = 0, missing = 0;
-        for (HotkeyLayout.Button b : overlay.currentLayout().buttons) {
-            TextView badge = badges.get(b.id);
-            if (!b.show) {
-                if (badge != null) {
-                    badge.setText("");
-                    badge.setBackground(null);
-                }
-                continue;
-            }
-            shown++;
-            Integer column = placement.get(b.id);
-            String name = column != null ? overlay.columnName(column) : null;
-            if (name == null) {
-                missing++;
-            }
-            if (badge != null) {
-                int color = name == null ? RED : name.startsWith("L") ? CYAN : GREEN;
-                badge.setText(name == null ? "no room" : name);
-                badge.setTextColor(color);
-                GradientDrawable d = new GradientDrawable();
-                d.setCornerRadius(px(8));
-                d.setStroke(px(1), color);
-                badge.setBackground(d);
-            }
-        }
-        String room = overlay.isPortrait() ? overlay.columnCapacity(false) + " fit in portrait"
-                : overlay.columnCapacity(true) + " fit in the side columns, more go over the video";
-        countText.setText(shown + " shown · " + room +
-                (missing > 0 ? " · " + missing + " don't fit (hide some or make keys smaller)" : ""));
-        countText.setTextColor(missing > 0 ? RED : DIM);
-    }
-
     // ---- New / edit hotkey ----
 
-    /** id == null: new hotkey. */
-    private void editButton(final String id) {
+    /** id == null: new hotkey, in {@code section}. */
+    private void editButton(final String id, int section) {
         final HotkeyLayout layout = overlay.currentLayout();
         final int index = id != null ? layout.indexOf(id) : -1;
         final HotkeyLayout.Button old = index >= 0 ? layout.buttons.get(index) : null;
@@ -383,19 +287,15 @@ final class HotkeyEditor extends Dialog {
         keys.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         final TextView status = text("", 13, DIM);
         final CheckBox wide = new CheckBox(ctx);
-        wide.setText("Wide (whole column width)");
-        final CheckBox shown = new CheckBox(ctx);
-        shown.setText("Shown");
+        wide.setText("Wide (a whole row of its section)");
+        final int[] chosenSection = {old != null ? old.section : section};
+        View sectionPicker = sectionPicker(chosenSection);
 
         if (old != null) {
             label.setText(old.spec.optString("label", ""));
             hint.setText(old.spec.optString("hint", ""));
             keys.setText(old.keysText());
             wide.setChecked(old.key.wide);
-            shown.setChecked(old.show);
-        }
-        else {
-            shown.setChecked(true);
         }
 
         box.addView(label, matchWrap());
@@ -411,7 +311,8 @@ final class HotkeyEditor extends Dialog {
         }
         box.addView(status, topMargin(matchWrap(), 8));
         box.addView(wide, topMargin(matchWrap(), 4));
-        box.addView(shown, matchWrap());
+        box.addView(text("Section", 13, DIM), topMargin(matchWrap(), 8));
+        box.addView(sectionPicker, topMargin(matchWrap(), 4));
 
         ScrollView scroll = new ScrollView(ctx);
         scroll.addView(box);
@@ -425,8 +326,8 @@ final class HotkeyEditor extends Dialog {
             builder.setNeutralButton("Delete", (d, w) -> {
                 List<HotkeyLayout.Button> buttons = new ArrayList<>(overlay.currentLayout().buttons);
                 buttons.remove(old);
-                overlay.setLayout(new HotkeyLayout(buttons, overlay.currentLayout().seen));
-                rebuildList();
+                overlay.setLayout(overlay.currentLayout().withButtons(buttons));
+                board.refresh();
                 Toast.makeText(activity, "Deleted " + old.key.label + " (Reset brings back built-in keys)",
                         Toast.LENGTH_LONG).show();
             });
@@ -434,7 +335,7 @@ final class HotkeyEditor extends Dialog {
         final AlertDialog dialog = builder.create();
 
         final Runnable validate = () -> {
-            HotkeyLayout.Button b = buildButton(old, id, label, hint, keys, wide, shown);
+            HotkeyLayout.Button b = buildButton(old, id, label, hint, keys, wide, chosenSection[0]);
             Button save = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             if (b == null) {
                 status.setTextColor(RED);
@@ -460,25 +361,26 @@ final class HotkeyEditor extends Dialog {
         dialog.setOnShowListener(d -> {
             validate.run();
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-                HotkeyLayout.Button b = buildButton(old, id, label, hint, keys, wide, shown);
+                HotkeyLayout.Button b = buildButton(old, id, label, hint, keys, wide, chosenSection[0]);
                 if (b == null) {
                     return;
                 }
-                List<HotkeyLayout.Button> buttons = new ArrayList<>(overlay.currentLayout().buttons);
+                HotkeyLayout current = overlay.currentLayout();
+                List<HotkeyLayout.Button> buttons = new ArrayList<>(current.buttons);
                 int at = old != null ? buttons.indexOf(old) : -1;
                 if (at >= 0) {
                     buttons.set(at, b);
                 }
                 else {
-                    // New keys go right after the last shown one, so they appear in the next free spot
-                    int last = -1;
-                    for (int i = 0; i < buttons.size(); i++) {
-                        if (buttons.get(i).show) last = i;
-                    }
-                    buttons.add(b.show ? last + 1 : buttons.size(), b);
+                    buttons.add(b);
                 }
-                overlay.setLayout(new HotkeyLayout(buttons, overlay.currentLayout().seen));
-                rebuildList();
+                HotkeyLayout updated = current.withButtons(buttons);
+                if (old == null || old.section != b.section) {
+                    // New, or moved to another section: it goes on top of that section
+                    updated = updated.move(b, b.section, Integer.MAX_VALUE);
+                }
+                overlay.setLayout(updated);
+                board.refresh();
                 dialog.dismiss();
             });
         });
@@ -492,7 +394,7 @@ final class HotkeyEditor extends Dialog {
 
     /** The edited button, or null (and lastError) when it isn't valid yet. */
     private HotkeyLayout.Button buildButton(HotkeyLayout.Button old, String id, EditText label, EditText hint,
-                                            EditText keys, CheckBox wide, CheckBox shown) {
+                                            EditText keys, CheckBox wide, int section) {
         try {
             JSONObject spec = old != null ? new JSONObject(old.spec.toString()) : new JSONObject();
             String l = label.getText().toString().trim();
@@ -514,11 +416,46 @@ final class HotkeyEditor extends Dialog {
                 spec.put("keys", k);
             }
             String newId = id != null ? id : "custom_" + System.currentTimeMillis();
-            return new HotkeyLayout.Button(newId, shown.isChecked(), spec);
+            return new HotkeyLayout.Button(newId, section, spec);
         } catch (JSONException e) {
             lastError = e.getMessage();
             return null;
         }
+    }
+
+    /** Hidden, 1 … 5 in the section colours; the chosen one is filled. */
+    private View sectionPicker(final int[] chosen) {
+        LinearLayout row = new LinearLayout(ctx);
+        final List<Button> chips = new ArrayList<>();
+        final Runnable paint = () -> {
+            for (int s = 0; s < chips.size(); s++) {
+                int color = HotkeyOverlay.sectionColor(s);
+                boolean on = chosen[0] == s;
+                GradientDrawable bg = new GradientDrawable();
+                bg.setCornerRadius(px(16));
+                bg.setColor(on ? color : CARD);
+                bg.setStroke(px(1), color);
+                chips.get(s).setBackground(bg);
+                chips.get(s).setTextColor(on ? HotkeyKeyView.TEXT_DARK : color);
+            }
+        };
+        for (int s = 0; s <= HotkeyLayout.SECTIONS; s++) {
+            final int section = s;
+            Button chip = chip(s == HotkeyLayout.HIDDEN ? "Hidden" : String.valueOf(s));
+            chip.setMinWidth(px(36));
+            chip.setMinimumWidth(px(36));
+            chip.setPadding(px(10), 0, px(10), 0);
+            chip.setOnClickListener(v -> {
+                chosen[0] = section;
+                paint.run();
+            });
+            chips.add(chip);
+            row.addView(chip);
+        }
+        paint.run();
+        HorizontalScrollView scroll = new HorizontalScrollView(ctx);
+        scroll.addView(row);
+        return scroll;
     }
 
     /** Quick inserts for the keys field: modifiers and the full key-name list. */
@@ -616,157 +553,5 @@ final class HotkeyEditor extends Dialog {
     private abstract static class SeekBarListener implements SeekBar.OnSeekBarChangeListener {
         @Override public void onStartTrackingTouch(SeekBar seekBar) {}
         @Override public void onStopTrackingTouch(SeekBar seekBar) {}
-    }
-
-    /**
-     * Vertical list of equal-height rows; dragging a row's handle (tag
-     * HANDLE) moves it. Other rows slide out of the way, the enclosing
-     * ScrollView scrolls near its edges, and the drop is reported once.
-     */
-    static final class ReorderList extends LinearLayout {
-        interface Listener {
-            void onMoved(int from, int to);
-        }
-
-        static final String HANDLE = "reorder_handle";
-        static final int ROW_DP = 54;
-        static final int HANDLE_DP = 44;
-
-        private final Listener listener;
-        private final float dp;
-        private View dragged;
-        private int from = -1, to = -1;
-        private float grabY, lastY;
-        private final Runnable autoScroll = new Runnable() {
-            @Override
-            public void run() {
-                ScrollView scroll = scrollParent();
-                if (dragged == null || scroll == null) {
-                    return;
-                }
-                int[] loc = new int[2];
-                scroll.getLocationOnScreen(loc);
-                int[] mine = new int[2];
-                getLocationOnScreen(mine);
-                float onScreen = mine[1] + lastY;
-                float edge = 56 * dp;
-                int step = 0;
-                if (onScreen < loc[1] + edge) step = -Math.round(10 * dp);
-                else if (onScreen > loc[1] + scroll.getHeight() - edge) step = Math.round(10 * dp);
-                if (step != 0) {
-                    int before = scroll.getScrollY();
-                    scroll.scrollBy(0, step);
-                    lastY += scroll.getScrollY() - before;
-                    track();
-                }
-                postOnAnimation(this);
-            }
-        };
-
-        ReorderList(Context context, Listener listener) {
-            super(context);
-            this.listener = listener;
-            this.dp = context.getResources().getDisplayMetrics().density;
-            setOrientation(VERTICAL);
-        }
-
-        private ScrollView scrollParent() {
-            ViewParent p = getParent();
-            while (p != null && !(p instanceof ScrollView)) {
-                p = p.getParent();
-            }
-            return (ScrollView) p;
-        }
-
-        private int rowAt(float y) {
-            for (int i = 0; i < getChildCount(); i++) {
-                View c = getChildAt(i);
-                if (y >= c.getTop() && y < c.getBottom()) {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        @Override
-        public boolean onInterceptTouchEvent(MotionEvent e) {
-            if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
-                int i = rowAt(e.getY());
-                if (i >= 0) {
-                    View row = getChildAt(i);
-                    View handle = row.findViewWithTag(HANDLE);
-                    float x = e.getX() - row.getLeft();
-                    if (handle != null && x >= handle.getLeft() && x < handle.getRight()) {
-                        dragged = row;
-                        from = to = i;
-                        grabY = e.getY();
-                        lastY = e.getY();
-                        row.setElevation(8 * dp);
-                        row.setAlpha(0.9f);
-                        row.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                        getParent().requestDisallowInterceptTouchEvent(true);
-                        postOnAnimation(autoScroll);
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        @SuppressLint("ClickableViewAccessibility")
-        @Override
-        public boolean onTouchEvent(MotionEvent e) {
-            if (dragged == null) {
-                return false;
-            }
-            switch (e.getActionMasked()) {
-                case MotionEvent.ACTION_MOVE:
-                    lastY = e.getY();
-                    track();
-                    return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    drop(e.getActionMasked() == MotionEvent.ACTION_UP);
-                    return true;
-                default:
-                    return true;
-            }
-        }
-
-        private void track() {
-            float dy = lastY - grabY;
-            int rowH = dragged.getHeight();
-            int target = Math.max(0, Math.min(getChildCount() - 1, from + Math.round(dy / rowH)));
-            dragged.setTranslationY(dy);
-            if (target != to) {
-                to = target;
-                dragged.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
-                for (int i = 0; i < getChildCount(); i++) {
-                    View c = getChildAt(i);
-                    if (c == dragged) continue;
-                    float shift = (i > from && i <= to) ? -rowH : (i < from && i >= to) ? rowH : 0;
-                    c.animate().translationY(shift).setDuration(120).start();
-                }
-            }
-        }
-
-        private void drop(boolean commit) {
-            removeCallbacks(autoScroll);
-            for (int i = 0; i < getChildCount(); i++) {
-                View c = getChildAt(i);
-                c.animate().cancel();
-                c.setTranslationY(0);
-            }
-            View row = dragged;
-            row.setElevation(0);
-            row.setAlpha(1);
-            dragged = null;
-            if (commit && to != from) {
-                removeViewAt(from);
-                addView(row, to);
-                listener.onMoved(from, to);
-            }
-            from = to = -1;
-        }
     }
 }
