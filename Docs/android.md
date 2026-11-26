@@ -10,7 +10,7 @@ Fork of [moonlight-stream/moonlight-android](https://github.com/moonlight-stream
 - Debug builds: `com.tonycgames.moonlight.debug`, label "Moonlight (Debug)",
   so a dev build and the release can live on the same phone.
 
-Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys on the sides of the stream),
+Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys beside the stream, editable in-stream, portrait mode),
 [in-app updates](updates.md) (the app updates itself from GitHub releases).
 
 ## Fork changes live in `app/fork.gradle`

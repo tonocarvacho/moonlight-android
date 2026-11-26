@@ -1,7 +1,6 @@
 package com.limelight.hotkeys;
 
 import android.content.Context;
-import android.graphics.Color;
 
 import com.limelight.nvstream.input.KeyboardPacket;
 
@@ -14,18 +13,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Hotkey overlay layout, parsed from JSON (assets/hotkeys/default.json, or a
- * user file). Format: Docs/hotkeys.md.
+ * Hotkey overlay layout: one ordered list of buttons, each shown or hidden.
+ * Shown buttons fill the columns bottom-up (right column first, then left,
+ * then inner columns). Parsed from JSON (assets/hotkeys/default.json, or the
+ * user's hotkeys.json written by the in-stream editor). Format: Docs/hotkeys.md.
  */
 final class HotkeyLayout {
     static final String ASSET = "hotkeys/default.json";
+    static final int VERSION = 2;
 
     /** Modifier bits, as sent in keyboard packets. Index order = MODS. */
     static final int[] MODS = {
@@ -52,62 +57,101 @@ final class HotkeyLayout {
         final Type type;
         final String label;
         final String hint;
-        final float weight;
+        /** Takes a whole column row instead of half. */
+        final boolean wide;
         /** KEYS: chords sent in order. One chord = held while the finger is down. */
         final Combo[] steps;
         /** MODIFIER: index into MODS. */
         final int mod;
 
-        Key(Type type, String label, String hint, float weight, Combo[] steps, int mod) {
+        Key(Type type, String label, String hint, boolean wide, Combo[] steps, int mod) {
             this.type = type;
             this.label = label;
             this.hint = hint;
-            this.weight = weight;
+            this.wide = wide;
             this.steps = steps;
             this.mod = mod;
         }
     }
 
-    static final class Page {
-        final String name;
-        final List<List<Key>> rows;
+    /**
+     * One entry of the list. {@code spec} is the button's JSON as written
+     * (label, hint, keys/mod/action, wide), kept so it saves back unchanged.
+     */
+    static final class Button {
+        final String id;
+        final boolean show;
+        final JSONObject spec;
+        final Key key;
 
-        Page(String name, List<List<Key>> rows) {
-            this.name = name;
-            this.rows = rows;
-        }
-    }
-
-    static final class Side {
-        final int accent;
-        final List<Page> pages;
-        final List<List<Key>> footer;
-
-        Side(int accent, List<Page> pages, List<List<Key>> footer) {
-            this.accent = accent;
-            this.pages = pages;
-            this.footer = footer;
+        Button(String id, boolean show, JSONObject spec) throws JSONException {
+            this.id = id;
+            this.show = show;
+            this.spec = spec;
+            this.key = parseKey(spec);
         }
 
-        int maxPageRows() {
-            int max = 0;
-            for (Page p : pages) {
-                max = Math.max(max, p.rows.size());
+        Button withShow(boolean value) {
+            try {
+                return new Button(id, value, spec);
+            } catch (JSONException e) {
+                throw new IllegalStateException(e); // spec already parsed once
             }
-            return max;
         }
 
-        boolean isEmpty() {
-            return pages.isEmpty() && footer.isEmpty();
+        /** The chord text for the editor, e.g. "Alt+R U" ("" for modifiers/actions). */
+        String keysText() {
+            return spec.optString("keys", "");
         }
     }
 
-    final Side left;
-    final Side right;
+    final List<Button> buttons;
+    /** Built-in button ids this list already knows (so deleted ones stay deleted). */
+    final Set<String> seen;
+    /** In {@link #seen}: every built-in button counts as known (converted version 1 files). */
+    private static final String SEEN_ALL = "*";
 
-    private HotkeyLayout(Side left, Side right) {
-        this.left = left;
-        this.right = right;
+    HotkeyLayout(List<Button> buttons, Set<String> seen) {
+        this.buttons = buttons;
+        this.seen = seen;
+    }
+
+    int indexOf(String id) {
+        for (int i = 0; i < buttons.size(); i++) {
+            if (buttons.get(i).id.equals(id)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    List<Button> shown() {
+        List<Button> out = new ArrayList<>();
+        for (Button b : buttons) {
+            if (b.show) {
+                out.add(b);
+            }
+        }
+        return out;
+    }
+
+    /** Built-in buttons added in an app update show up at the end of the user's list. */
+    static HotkeyLayout merge(HotkeyLayout user, HotkeyLayout defaults) {
+        List<Button> buttons = new ArrayList<>(user.buttons);
+        Set<String> ids = new HashSet<>();
+        for (Button b : buttons) {
+            ids.add(b.id);
+        }
+        boolean seenAll = user.seen.contains(SEEN_ALL);
+        Set<String> seen = new LinkedHashSet<>(user.seen);
+        seen.remove(SEEN_ALL);
+        for (Button b : defaults.buttons) {
+            if (!seenAll && !ids.contains(b.id) && !user.seen.contains(b.id)) {
+                buttons.add(b);
+            }
+            seen.add(b.id);
+        }
+        return new HotkeyLayout(buttons, seen);
     }
 
     static String readAsset(Context context) throws IOException {
@@ -128,58 +172,128 @@ final class HotkeyLayout {
 
     static HotkeyLayout parse(String json) throws JSONException {
         JSONObject root = new JSONObject(json);
-        return new HotkeyLayout(
-                parseSide(root.optJSONObject("left"), 0xFF8BE9FD),
-                parseSide(root.optJSONObject("right"), 0xFF50FA7B));
+        if (!root.has("buttons") && (root.has("left") || root.has("right"))) {
+            return parseLegacy(root);
+        }
+
+        JSONArray arr = root.getJSONArray("buttons");
+        List<Button> buttons = new ArrayList<>();
+        Set<String> ids = new HashSet<>();
+        for (int i = 0; i < arr.length(); i++) {
+            JSONObject obj = arr.getJSONObject(i);
+            String id = obj.optString("id", "");
+            if (id.isEmpty() || !ids.add(id)) {
+                throw new JSONException("button " + (i + 1) + " needs a unique \"id\": " + obj);
+            }
+            buttons.add(new Button(id, obj.optBoolean("show", true), specOf(obj)));
+        }
+
+        Set<String> seen = new LinkedHashSet<>();
+        JSONArray seenArr = root.optJSONArray("seen");
+        if (seenArr != null) {
+            for (int i = 0; i < seenArr.length(); i++) {
+                seen.add(seenArr.getString(i));
+            }
+        }
+        else {
+            seen.addAll(ids);
+        }
+        return new HotkeyLayout(buttons, seen);
     }
 
-    private static Side parseSide(JSONObject obj, int defaultAccent) throws JSONException {
-        if (obj == null) {
-            return new Side(defaultAccent, Collections.emptyList(), Collections.emptyList());
-        }
-
-        int accent = defaultAccent;
-        String accentStr = obj.optString("accent", null);
-        if (accentStr != null) {
-            try {
-                accent = Color.parseColor(accentStr);
-            } catch (IllegalArgumentException e) {
-                throw new JSONException("bad accent color: " + accentStr);
-            }
-        }
-
-        List<Page> pages = new ArrayList<>();
-        JSONArray pagesArr = obj.optJSONArray("pages");
-        if (pagesArr != null) {
-            for (int i = 0; i < pagesArr.length(); i++) {
-                JSONObject page = pagesArr.getJSONObject(i);
-                pages.add(new Page(page.optString("name", ""), parseRows(page.optJSONArray("rows"))));
-            }
-        }
-        return new Side(accent, pages, parseRows(obj.optJSONArray("footer")));
+    /** The button's own fields, without the list bookkeeping (id, show). */
+    private static JSONObject specOf(JSONObject obj) throws JSONException {
+        JSONObject spec = new JSONObject(obj.toString());
+        spec.remove("id");
+        spec.remove("show");
+        return spec;
     }
 
-    private static List<List<Key>> parseRows(JSONArray rowsArr) throws JSONException {
-        List<List<Key>> rows = new ArrayList<>();
-        if (rowsArr == null) {
-            return rows;
-        }
-        for (int i = 0; i < rowsArr.length(); i++) {
-            JSONArray rowArr = rowsArr.getJSONArray(i);
-            List<Key> row = new ArrayList<>();
-            for (int j = 0; j < rowArr.length(); j++) {
-                row.add(parseKey(rowArr.getJSONObject(j)));
+    String toJson() {
+        try {
+            JSONObject root = new JSONObject();
+            root.put("_doc", "Hotkey overlay layout, written by the in-stream editor. Format: Docs/hotkeys.md");
+            root.put("version", VERSION);
+            JSONArray arr = new JSONArray();
+            for (Button b : buttons) {
+                JSONObject obj = new JSONObject();
+                obj.put("id", b.id);
+                obj.put("show", b.show);
+                for (Iterator<String> it = b.spec.keys(); it.hasNext(); ) {
+                    String k = it.next();
+                    obj.put(k, b.spec.get(k));
+                }
+                arr.put(obj);
             }
-            if (!row.isEmpty()) {
-                rows.add(row);
-            }
+            root.put("buttons", arr);
+            root.put("seen", new JSONArray(seen));
+            return root.toString(1);
+        } catch (JSONException e) {
+            throw new IllegalStateException(e);
         }
-        return rows;
     }
 
-    private static Key parseKey(JSONObject obj) throws JSONException {
-        float weight = (float) obj.optDouble("weight", 1.0);
-        String label = obj.optString("label", null);
+    /**
+     * Version 1 files (left/right sides with pages and a footer). Converted so
+     * they look as before: each side's footer and first page, bottom-up; the
+     * other pages are kept but hidden.
+     */
+    private static HotkeyLayout parseLegacy(JSONObject root) throws JSONException {
+        List<Button> shown = new ArrayList<>();
+        List<Button> hidden = new ArrayList<>();
+        for (String sideName : new String[]{"right", "left"}) {
+            JSONObject side = root.optJSONObject(sideName);
+            if (side == null) {
+                continue;
+            }
+            JSONArray pages = side.optJSONArray("pages");
+            List<JSONArray> bottomUp = new ArrayList<>();
+            addRowsBottomUp(bottomUp, side.optJSONArray("footer"));
+            if (pages != null && pages.length() > 0) {
+                addRowsBottomUp(bottomUp, pages.getJSONObject(0).optJSONArray("rows"));
+            }
+            addLegacyRows(bottomUp, true, shown, hidden, sideName);
+            for (int p = 1; pages != null && p < pages.length(); p++) {
+                List<JSONArray> rows = new ArrayList<>();
+                JSONArray arr = pages.getJSONObject(p).optJSONArray("rows");
+                for (int r = 0; arr != null && r < arr.length(); r++) {
+                    rows.add(arr.getJSONArray(r));
+                }
+                addLegacyRows(rows, false, shown, hidden, sideName);
+            }
+        }
+        List<Button> all = new ArrayList<>(shown);
+        all.addAll(hidden);
+        // Its buttons have their own ids: don't add the built-in ones next to them
+        Set<String> seen = new LinkedHashSet<>();
+        seen.add(SEEN_ALL);
+        return new HotkeyLayout(all, seen);
+    }
+
+    private static void addRowsBottomUp(List<JSONArray> out, JSONArray rows) throws JSONException {
+        for (int r = rows != null ? rows.length() - 1 : -1; r >= 0; r--) {
+            out.add(rows.getJSONArray(r));
+        }
+    }
+
+    private static void addLegacyRows(List<JSONArray> rows, boolean show, List<Button> shown,
+                                      List<Button> hidden, String side) throws JSONException {
+        for (JSONArray row : rows) {
+            for (int k = 0; k < row.length(); k++) {
+                JSONObject spec = new JSONObject(row.getJSONObject(k).toString());
+                spec.remove("weight");
+                if (row.length() == 1) {
+                    spec.put("wide", true);
+                }
+                List<Button> out = show ? shown : hidden;
+                out.add(new Button(side + "_" + (shown.size() + hidden.size()), show, spec));
+            }
+        }
+    }
+
+    static Key parseKey(JSONObject obj) throws JSONException {
+        boolean wide = obj.optBoolean("wide", false);
+        String label = emptyToNull(obj.optString("label", null));
         String hint = obj.optString("hint", null);
 
         if (obj.has("mod")) {
@@ -187,7 +301,7 @@ final class HotkeyLayout {
             if (mod < 0) {
                 throw new JSONException("unknown modifier: " + obj.getString("mod"));
             }
-            return new Key(Type.MODIFIER, label != null ? label : MOD_NAMES[mod], hint, weight, null, mod);
+            return new Key(Type.MODIFIER, label != null ? label : MOD_NAMES[mod], emptyToNull(hint), wide, null, mod);
         }
 
         if (obj.has("action")) {
@@ -195,7 +309,7 @@ final class HotkeyLayout {
             if (!action.equals("keyboard")) {
                 throw new JSONException("unknown action: " + action);
             }
-            return new Key(Type.KEYBOARD, label != null ? label : "⌨", hint, weight, null, -1);
+            return new Key(Type.KEYBOARD, label != null ? label : "⌨", emptyToNull(hint), wide, null, -1);
         }
 
         String keys = obj.optString("keys", null);
@@ -210,10 +324,11 @@ final class HotkeyLayout {
         else if (hint == null) {
             hint = describe(steps);
         }
-        if (hint != null && hint.isEmpty()) {
-            hint = null;
-        }
-        return new Key(Type.KEYS, label, hint, weight, steps, -1);
+        return new Key(Type.KEYS, label, emptyToNull(hint), wide, steps, -1);
+    }
+
+    private static String emptyToNull(String s) {
+        return s == null || s.isEmpty() ? null : s;
     }
 
     /** "Super+U" or "Alt+R U" (space separates chords sent one after another). */
@@ -309,12 +424,15 @@ final class HotkeyLayout {
 
     private static final Map<String, Integer> VK = new HashMap<>();
     private static final Map<Integer, String> VK_NAMES = new HashMap<>();
+    /** One name per key, for the editor's key list. */
+    static final List<String> KEY_NAMES = new ArrayList<>();
 
     private static void vk(int code, String display, String... names) {
         for (String n : names) {
             VK.put(n.toLowerCase(Locale.ROOT), code);
         }
         VK_NAMES.put(code, display);
+        KEY_NAMES.add(names[0]);
     }
 
     static {

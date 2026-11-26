@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fork-only styles (hotkey editor, Docs/hotkeys.md), kept apart from upstream's styles.xml. -->
+<resources>
+    <color name="hotkey_editor_bg">#22232E</color>
+    <style name="HotkeyEditorTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:colorAccent">#BD93F9</item>
+        <item name="android:colorControlActivated">#BD93F9</item>
+        <item name="android:colorBackground">#22232E</item>
+        <item name="android:windowBackground">@color/hotkey_editor_bg</item>
+    </style>
+
+    <style name="HotkeyDialogTheme" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#BD93F9</item>
+    </style>
+</resources>

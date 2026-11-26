@@ -6,6 +6,7 @@ import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.hotkeys.HotkeyOverlay;
+import com.limelight.hotkeys.StreamRotation;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
@@ -516,6 +517,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
 
         hotkeyOverlay = HotkeyOverlay.create(this, (FrameLayout)streamView.getParent(), streamView,
+                prefConfig.width, prefConfig.height,
                 (keyMap, direction, modifiers) -> conn.sendKeyboardInput(keyMap, direction, modifiers, (byte)0),
                 this::toggleKeyboard);
 
@@ -576,7 +578,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         }
         else {
             // For regular displays, we always request landscape
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE);
+            // Fork: unless portrait is allowed for the hotkey overlay (Docs/hotkeys.md)
+            setRequestedOrientation(StreamRotation.requested(this, prefConfig.onscreenController));
         }
     }
 

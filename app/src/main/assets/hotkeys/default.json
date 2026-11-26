@@ -1,87 +1,94 @@
 {
-  "_doc": "Hotkey overlay layout. Format and key names: Docs/hotkeys.md",
-  "left": {
-    "accent": "#8be9fd",
-    "pages": [
-      {
-        "name": "Desk",
-        "rows": [
-          [{ "label": "Apps", "hint": "rofi", "keys": "Ctrl+Space" }],
-          [{ "label": "1", "keys": "Super+U" }, { "label": "2", "keys": "Super+I" }],
-          [{ "label": "3", "keys": "Super+O" }, { "label": "4", "keys": "Super+P" }],
-          [{ "label": "5", "keys": "Super+2" }, { "label": "♫", "hint": "spotify", "keys": "Super+Y" }],
-          [{ "label": "Last", "hint": "window", "keys": "Super+Ctrl+L" }, { "label": "Next", "hint": "window", "keys": "Shift+Alt+T" }],
-          [{ "label": "Full", "keys": "Super+Z" }, { "label": "Close", "keys": "Super+Q" }]
-        ]
-      },
-      {
-        "name": "Move",
-        "rows": [
-          [{ "label": "→1", "keys": "Super+Alt+U" }, { "label": "→2", "keys": "Super+Alt+I" }],
-          [{ "label": "→3", "keys": "Super+Alt+O" }, { "label": "→4", "keys": "Super+Alt+P" }],
-          [{ "label": "Master", "keys": "Super+Ctrl+W" }, { "label": "Swap", "keys": "Super+Escape" }],
-          [{ "label": "Float", "keys": "Super+Ctrl+T" }, { "label": "Screen", "keys": "Super+Ctrl+U" }],
-          [{ "label": "Wider", "keys": "Super+Ctrl+J" }, { "label": "Thinner", "keys": "Super+Ctrl+K" }],
-          [{ "label": "Layout", "keys": "Shift+Alt+G" }, { "label": "Shot", "hint": "area", "keys": "Super+S" }]
-        ]
-      },
-      {
-        "name": "Nav",
-        "rows": [
-          [{ "label": "↑", "keys": "Up" }, { "label": "PgUp", "keys": "PageUp" }],
-          [{ "label": "↓", "keys": "Down" }, { "label": "PgDn", "keys": "PageDown" }],
-          [{ "label": "←", "keys": "Left" }, { "label": "→", "keys": "Right" }],
-          [{ "label": "Home", "keys": "Home" }, { "label": "End", "keys": "End" }],
-          [{ "label": "⌫", "keys": "Backspace" }, { "label": "Del", "keys": "Delete" }],
-          [{ "label": "^C", "keys": "Ctrl+C" }, { "label": "^D", "keys": "Ctrl+D" }]
-        ]
-      }
-    ],
-    "footer": [
-      [{ "mod": "Super" }, { "mod": "Ctrl" }],
-      [{ "mod": "Alt" }, { "mod": "Shift" }]
-    ]
-  },
-  "right": {
-    "accent": "#50fa7b",
-    "pages": [
-      {
-        "name": "Tmux",
-        "rows": [
-          [{ "label": "New", "hint": "tab", "keys": "Alt+T" }, { "label": "Close", "hint": "tab", "keys": "Alt+W" }],
-          [{ "label": "1", "hint": "tab", "keys": "Alt+R U" }, { "label": "2", "hint": "tab", "keys": "Alt+R I" }],
-          [{ "label": "3", "hint": "tab", "keys": "Alt+R O" }, { "label": "4", "hint": "tab", "keys": "Alt+R P" }],
-          [{ "label": "5", "hint": "tab", "keys": "Alt+R J" }, { "label": "Last", "hint": "tab", "keys": "Alt+J" }],
-          [{ "label": "Sess", "hint": "pick", "keys": "Alt+E" }, { "label": "⇄", "hint": "session", "keys": "Alt+K" }],
-          [{ "label": "Files", "keys": "Ctrl+P" }, { "label": "Yazi", "keys": "Alt+B" }]
-        ]
-      },
-      {
-        "name": "Pane",
-        "rows": [
-          [{ "label": "S1", "hint": "session", "keys": "Alt+R 1" }, { "label": "S2", "hint": "session", "keys": "Alt+R 2" }],
-          [{ "label": "S3", "hint": "session", "keys": "Alt+R 3" }, { "label": "S4", "hint": "session", "keys": "Alt+R 4" }],
-          [{ "label": "S5", "hint": "session", "keys": "Alt+R 5" }, { "label": "Copy", "hint": "mode", "keys": "Alt+R V" }],
-          [{ "label": "Split", "keys": "Alt+R T" }, { "label": "Pane", "hint": "select", "keys": "Alt+R H" }],
-          [{ "label": "Break", "hint": "pane", "keys": "Alt+R X" }, { "label": "Kill", "hint": "pane", "keys": "Alt+R W" }],
-          [{ "label": "Prefix", "hint": "⌥R", "keys": "Alt+R" }]
-        ]
-      },
-      {
-        "name": "Vim",
-        "rows": [
-          [{ "label": "Save", "keys": "Ctrl+S" }, { "label": "Quit", "hint": "all", "keys": "Space O" }],
-          [{ "label": "Alt", "hint": "buffer", "keys": "Ctrl+J" }, { "label": "Prev", "hint": "buffer", "keys": "Ctrl+K" }],
-          [{ "label": "½↑", "keys": "Ctrl+U" }, { "label": "½↓", "keys": "Ctrl+D" }],
-          [{ "label": "Undo", "keys": "U" }, { "label": "Redo", "keys": "Ctrl+R" }],
-          [{ "label": "Del", "hint": "buffer", "keys": "Ctrl+W W" }, { "label": "NoHL", "keys": "Ctrl+L" }],
-          [{ "label": ":", "hint": "cmd", "keys": "Shift+Semicolon" }, { "label": "/", "hint": "search", "keys": "Slash" }]
-        ]
-      }
-    ],
-    "footer": [
-      [{ "label": "Esc", "hint": "", "keys": "Escape" }, { "label": "Tab", "keys": "Tab" }],
-      [{ "label": "⌨", "hint": "kbd", "action": "keyboard" }, { "label": "⏎", "hint": "enter", "keys": "Enter" }]
-    ]
-  }
+  "_doc": "Hotkey overlay layout. Shown buttons fill the right column bottom-up, then the left one. Format: Docs/hotkeys.md",
+  "version": 2,
+  "buttons": [
+    {"id": "kbd", "show": true, "label": "⌨", "hint": "kbd", "action": "keyboard"},
+    {"id": "enter", "show": true, "label": "⏎", "hint": "enter", "keys": "Enter"},
+    {"id": "esc", "show": true, "label": "Esc", "hint": "", "keys": "Escape"},
+    {"id": "tab", "show": true, "label": "Tab", "keys": "Tab"},
+    {"id": "tmux_files", "show": true, "label": "Files", "keys": "Ctrl+P"},
+    {"id": "tmux_yazi", "show": true, "label": "Yazi", "keys": "Alt+B"},
+    {"id": "tmux_sess", "show": true, "label": "Sess", "hint": "pick", "keys": "Alt+E"},
+    {"id": "tmux_lastsess", "show": true, "label": "⇄", "hint": "session", "keys": "Alt+K"},
+    {"id": "tmux_tab5", "show": true, "label": "5", "hint": "tab", "keys": "Alt+R J"},
+    {"id": "tmux_lasttab", "show": true, "label": "Last", "hint": "tab", "keys": "Alt+J"},
+    {"id": "tmux_tab3", "show": true, "label": "3", "hint": "tab", "keys": "Alt+R O"},
+    {"id": "tmux_tab4", "show": true, "label": "4", "hint": "tab", "keys": "Alt+R P"},
+    {"id": "tmux_tab1", "show": true, "label": "1", "hint": "tab", "keys": "Alt+R U"},
+    {"id": "tmux_tab2", "show": true, "label": "2", "hint": "tab", "keys": "Alt+R I"},
+    {"id": "tmux_new", "show": true, "label": "New", "hint": "tab", "keys": "Alt+T"},
+    {"id": "tmux_close", "show": true, "label": "Close", "hint": "tab", "keys": "Alt+W"},
+    {"id": "mod_alt", "show": true, "mod": "Alt"},
+    {"id": "mod_shift", "show": true, "mod": "Shift"},
+    {"id": "mod_super", "show": true, "mod": "Super"},
+    {"id": "mod_ctrl", "show": true, "mod": "Ctrl"},
+    {"id": "wm_full", "show": true, "label": "Full", "keys": "Super+Z"},
+    {"id": "wm_close", "show": true, "label": "Close", "keys": "Super+Q"},
+    {"id": "wm_last", "show": true, "label": "Last", "hint": "window", "keys": "Super+Ctrl+L"},
+    {"id": "wm_next", "show": true, "label": "Next", "hint": "window", "keys": "Shift+Alt+T"},
+    {"id": "wm_tag5", "show": true, "label": "5", "keys": "Super+2"},
+    {"id": "wm_spotify", "show": true, "label": "♫", "hint": "spotify", "keys": "Super+Y"},
+    {"id": "wm_tag3", "show": true, "label": "3", "keys": "Super+O"},
+    {"id": "wm_tag4", "show": true, "label": "4", "keys": "Super+P"},
+    {"id": "wm_tag1", "show": true, "label": "1", "keys": "Super+U"},
+    {"id": "wm_tag2", "show": true, "label": "2", "keys": "Super+I"},
+    {"id": "wm_apps", "show": true, "label": "Apps", "hint": "rofi", "keys": "Ctrl+Space", "wide": true},
+    {"id": "num_0", "show": false, "label": "0", "hint": "", "keys": "0"},
+    {"id": "num_1", "show": false, "label": "1", "hint": "", "keys": "1"},
+    {"id": "num_2", "show": false, "label": "2", "hint": "", "keys": "2"},
+    {"id": "num_3", "show": false, "label": "3", "hint": "", "keys": "3"},
+    {"id": "num_4", "show": false, "label": "4", "hint": "", "keys": "4"},
+    {"id": "num_5", "show": false, "label": "5", "hint": "", "keys": "5"},
+    {"id": "num_6", "show": false, "label": "6", "hint": "", "keys": "6"},
+    {"id": "num_7", "show": false, "label": "7", "hint": "", "keys": "7"},
+    {"id": "num_8", "show": false, "label": "8", "hint": "", "keys": "8"},
+    {"id": "num_9", "show": false, "label": "9", "hint": "", "keys": "9"},
+    {"id": "move_tag1", "show": false, "label": "→1", "keys": "Super+Alt+U"},
+    {"id": "move_tag2", "show": false, "label": "→2", "keys": "Super+Alt+I"},
+    {"id": "move_tag3", "show": false, "label": "→3", "keys": "Super+Alt+O"},
+    {"id": "move_tag4", "show": false, "label": "→4", "keys": "Super+Alt+P"},
+    {"id": "move_master", "show": false, "label": "Master", "keys": "Super+Ctrl+W"},
+    {"id": "move_swap", "show": false, "label": "Swap", "keys": "Super+Escape"},
+    {"id": "move_float", "show": false, "label": "Float", "keys": "Super+Ctrl+T"},
+    {"id": "move_screen", "show": false, "label": "Screen", "keys": "Super+Ctrl+U"},
+    {"id": "move_wider", "show": false, "label": "Wider", "keys": "Super+Ctrl+J"},
+    {"id": "move_thinner", "show": false, "label": "Thinner", "keys": "Super+Ctrl+K"},
+    {"id": "move_layout", "show": false, "label": "Layout", "keys": "Shift+Alt+G"},
+    {"id": "move_shot", "show": false, "label": "Shot", "hint": "area", "keys": "Super+S"},
+    {"id": "nav_up", "show": false, "label": "↑", "keys": "Up"},
+    {"id": "nav_pgup", "show": false, "label": "PgUp", "keys": "PageUp"},
+    {"id": "nav_down", "show": false, "label": "↓", "keys": "Down"},
+    {"id": "nav_pgdn", "show": false, "label": "PgDn", "keys": "PageDown"},
+    {"id": "nav_left", "show": false, "label": "←", "keys": "Left"},
+    {"id": "nav_right", "show": false, "label": "→", "keys": "Right"},
+    {"id": "nav_home", "show": false, "label": "Home", "keys": "Home"},
+    {"id": "nav_end", "show": false, "label": "End", "keys": "End"},
+    {"id": "nav_bksp", "show": false, "label": "⌫", "keys": "Backspace"},
+    {"id": "nav_del", "show": false, "label": "Del", "keys": "Delete"},
+    {"id": "nav_ctrlc", "show": false, "label": "^C", "keys": "Ctrl+C"},
+    {"id": "nav_ctrld", "show": false, "label": "^D", "keys": "Ctrl+D"},
+    {"id": "pane_s1", "show": false, "label": "S1", "hint": "session", "keys": "Alt+R 1"},
+    {"id": "pane_s2", "show": false, "label": "S2", "hint": "session", "keys": "Alt+R 2"},
+    {"id": "pane_s3", "show": false, "label": "S3", "hint": "session", "keys": "Alt+R 3"},
+    {"id": "pane_s4", "show": false, "label": "S4", "hint": "session", "keys": "Alt+R 4"},
+    {"id": "pane_s5", "show": false, "label": "S5", "hint": "session", "keys": "Alt+R 5"},
+    {"id": "pane_copy", "show": false, "label": "Copy", "hint": "mode", "keys": "Alt+R V"},
+    {"id": "pane_split", "show": false, "label": "Split", "keys": "Alt+R T"},
+    {"id": "pane_select", "show": false, "label": "Pane", "hint": "select", "keys": "Alt+R H"},
+    {"id": "pane_break", "show": false, "label": "Break", "hint": "pane", "keys": "Alt+R X"},
+    {"id": "pane_kill", "show": false, "label": "Kill", "hint": "pane", "keys": "Alt+R W"},
+    {"id": "pane_prefix", "show": false, "label": "Prefix", "hint": "⌥R", "keys": "Alt+R", "wide": true},
+    {"id": "vim_save", "show": false, "label": "Save", "keys": "Ctrl+S"},
+    {"id": "vim_quit", "show": false, "label": "Quit", "hint": "all", "keys": "Space O"},
+    {"id": "vim_altbuf", "show": false, "label": "Alt", "hint": "buffer", "keys": "Ctrl+J"},
+    {"id": "vim_prevbuf", "show": false, "label": "Prev", "hint": "buffer", "keys": "Ctrl+K"},
+    {"id": "vim_halfup", "show": false, "label": "½↑", "keys": "Ctrl+U"},
+    {"id": "vim_halfdn", "show": false, "label": "½↓", "keys": "Ctrl+D"},
+    {"id": "vim_undo", "show": false, "label": "Undo", "keys": "U"},
+    {"id": "vim_redo", "show": false, "label": "Redo", "keys": "Ctrl+R"},
+    {"id": "vim_delbuf", "show": false, "label": "Del", "hint": "buffer", "keys": "Ctrl+W W"},
+    {"id": "vim_nohl", "show": false, "label": "NoHL", "keys": "Ctrl+L"},
+    {"id": "vim_cmd", "show": false, "label": ":", "hint": "cmd", "keys": "Shift+Semicolon"},
+    {"id": "vim_search", "show": false, "label": "/", "hint": "search", "keys": "Slash"}
+  ]
 }

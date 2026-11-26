@@ -18,7 +18,7 @@ import java.util.ArrayDeque;
 /**
  * Debug builds only: the hotkey overlay over a fake 16:9 stream, with every
  * key packet shown on screen and logged (tag "HotkeyPreview"). For trying
- * layouts without a PC:
+ * layouts without a PC (turns to portrait like a real stream):
  *   adb shell am start -n com.tonycgames.moonlight.debug/com.limelight.hotkeys.HotkeyPreviewActivity
  */
 public class HotkeyPreviewActivity extends Activity {
@@ -49,7 +49,7 @@ public class HotkeyPreviewActivity extends Activity {
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
         setContentView(root);
 
-        HotkeyOverlay.create(this, root, stream, this::onKey, () -> {
+        HotkeyOverlay.create(this, root, stream, 1920, 1080, this::onKey, () -> {
             onLine("toggle Android keyboard");
             ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).toggleSoftInput(0, 0);
         });

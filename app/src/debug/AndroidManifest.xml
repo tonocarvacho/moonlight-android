@@ -6,7 +6,7 @@
             android:name="com.limelight.hotkeys.HotkeyPreviewActivity"
             android:label="Hotkey preview"
             android:exported="true"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="sensor"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/StreamTheme" />
     </application>

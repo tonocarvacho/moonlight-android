@@ -212,6 +212,14 @@
             android:summary="@string/summary_hotkey_opacity"
             android:text="@string/suffix_osc_opacity"
             android:title="@string/title_hotkey_opacity" />
+        <ListPreference
+            android:key="list_stream_rotation"
+            android:dependency="checkbox_hotkey_overlay"
+            android:defaultValue="sensor"
+            android:entries="@array/stream_rotation_names"
+            android:entryValues="@array/stream_rotation_values"
+            android:summary="@string/summary_stream_rotation"
+            android:title="@string/title_stream_rotation" />
     </PreferenceCategory>
     <!-- Fork: in-app updates (Docs/updates.md) -->
     <PreferenceCategory android:title="@string/category_updates"
