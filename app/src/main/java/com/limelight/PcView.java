@@ -169,6 +169,9 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
             helpButton.setVisibility(View.GONE);
         }
 
+        // Fork: check for updates button (Docs/updates.md)
+        Updater.setupButton(this, findViewById(R.id.checkUpdatesButton));
+
         getFragmentManager().beginTransaction()
             .replace(R.id.pcFragmentContainer, new AdapterFragment())
             .commitAllowingStateLoss();

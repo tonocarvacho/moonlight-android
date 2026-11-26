@@ -134,6 +134,12 @@
             android:title="@string/title_checkbox_touchscreen_trackpad"
             android:summary="@string/summary_checkbox_touchscreen_trackpad"
             android:defaultValue="true" />
+        <!-- Fork: pinch zoom (Docs/zoom.md) -->
+        <CheckBoxPreference
+            android:key="checkbox_stream_zoom"
+            android:title="@string/title_checkbox_stream_zoom"
+            android:summary="@string/summary_checkbox_stream_zoom"
+            android:defaultValue="true" />
         <CheckBoxPreference
             android:key="checkbox_mouse_nav_buttons"
             android:title="@string/title_checkbox_mouse_nav_buttons"

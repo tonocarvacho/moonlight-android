@@ -127,6 +127,9 @@ adb shell am start -n com.tonycgames.moonlight.debug/com.limelight.hotkeys.Hotke
 adb logcat -s HotkeyPreview
 ```
 
+The fake stream is a real SurfaceView with a labelled grid and the
+[stream zoom](zoom.md) wired up like Game, so pinch/pan can be tested there too.
+
 Use it to check a layout or to test overlay changes on an emulator (an
 S24-sized AVD is 1080x2340 at 450 dpi; AVD `s24_hotkeys`). It turns with the
 device like a real stream: `adb emu rotate` switches portrait/landscape.

@@ -16,6 +16,8 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.View;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -56,13 +58,17 @@ import okhttp3.ResponseBody;
 public final class Updater {
     public static final String PREF_AUTO_CHECK = "checkbox_auto_update_check";
     private static final String STATE_PREFS = "updater";
-    private static final long AUTO_CHECK_INTERVAL_MS = TimeUnit.HOURS.toMillis(1);
+    // Only successful checks count, so a launch without network (or before CI
+    // has published the release) doesn't hide a new version for long.
+    private static final long AUTO_CHECK_INTERVAL_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long LATER_SNOOZE_MS = TimeUnit.HOURS.toMillis(12);
 
     private static final OkHttpClient http = new OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build();
+
+    private static final int UPDATE_AVAILABLE_COLOR = 0xFF50FA7B;
 
     private static boolean busy;
 
@@ -90,18 +96,48 @@ public final class Updater {
         return !BuildConfig.UPDATE_URL.isEmpty();
     }
 
-    /** App launch: quiet check, at most once an hour, unless turned off in settings. */
+    /**
+     * PC list / app list shown: quiet check, at most every 10 minutes after
+     * a successful one, unless turned off in settings.
+     */
     public static void checkOnLaunch(Activity activity) {
         if (!isEnabled() || !PreferenceManager.getDefaultSharedPreferences(activity).getBoolean(PREF_AUTO_CHECK, true)) {
             return;
         }
-        SharedPreferences state = activity.getSharedPreferences(STATE_PREFS, 0);
-        long now = System.currentTimeMillis();
-        if (now - state.getLong("last_check", 0) < AUTO_CHECK_INTERVAL_MS) {
+        long lastCheck = activity.getSharedPreferences(STATE_PREFS, 0).getLong("last_check", 0);
+        if (System.currentTimeMillis() - lastCheck < AUTO_CHECK_INTERVAL_MS) {
             return;
         }
-        state.edit().putLong("last_check", now).apply();
         check(activity, false);
+    }
+
+    /**
+     * The "check for updates" button in the PC list header: checks now, and
+     * turns green while a newer version is known.
+     */
+    public static void setupButton(Activity activity, ImageButton button) {
+        button.setOnClickListener(v -> checkNow(activity));
+        showAvailable(activity, button);
+    }
+
+    private static void showAvailable(Activity activity, ImageButton button) {
+        boolean available = isEnabled() &&
+                activity.getSharedPreferences(STATE_PREFS, 0).getLong("latest_code", -1) > installedVersionCode(activity);
+        if (available) {
+            button.setColorFilter(UPDATE_AVAILABLE_COLOR);
+        }
+        else {
+            button.clearColorFilter();
+        }
+        button.setContentDescription(activity.getString(available ?
+                R.string.update_available_title : R.string.title_check_updates));
+    }
+
+    private static void showAvailable(Activity activity) {
+        View button = activity.findViewById(R.id.checkUpdatesButton);
+        if (button instanceof ImageButton) {
+            showAvailable(activity, (ImageButton) button);
+        }
     }
 
     /** "Check for updates" in settings: always checks and reports the result. */
@@ -159,6 +195,10 @@ public final class Updater {
                     }
                     return;
                 }
+                SharedPreferences state = activity.getSharedPreferences(STATE_PREFS, 0);
+                state.edit().putLong("last_check", System.currentTimeMillis())
+                        .putLong("latest_code", r.versionCode).apply();
+                showAvailable(activity);
                 if (r.versionCode <= installedVersionCode(activity)) {
                     if (manual) {
                         Toast.makeText(activity, activity.getString(R.string.update_up_to_date,
@@ -166,7 +206,6 @@ public final class Updater {
                     }
                     return;
                 }
-                SharedPreferences state = activity.getSharedPreferences(STATE_PREFS, 0);
                 if (!manual && state.getLong("snooze_code", -1) == r.versionCode &&
                         System.currentTimeMillis() < state.getLong("snooze_until", 0)) {
                     return;

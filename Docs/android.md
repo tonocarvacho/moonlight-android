@@ -11,7 +11,9 @@ Fork of [moonlight-stream/moonlight-android](https://github.com/moonlight-stream
   so a dev build and the release can live on the same phone.
 
 Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys beside the stream, editable in-stream, portrait mode),
-[in-app updates](updates.md) (the app updates itself from GitHub releases).
+[in-app updates](updates.md) (the app updates itself from GitHub releases;
+check-for-updates button in the PC list header),
+[stream zoom](zoom.md) (pinch to zoom the stream, two-finger drag to move it).
 
 ## Fork changes live in `app/fork.gradle`
 

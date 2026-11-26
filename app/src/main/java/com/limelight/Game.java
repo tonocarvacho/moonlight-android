@@ -7,6 +7,7 @@ import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.hotkeys.HotkeyOverlay;
 import com.limelight.hotkeys.StreamRotation;
+import com.limelight.zoom.StreamZoom;
 import com.limelight.binding.input.capture.InputCaptureManager;
 import com.limelight.binding.input.capture.InputCaptureProvider;
 import com.limelight.binding.input.touch.AbsoluteTouchContext;
@@ -115,6 +116,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private KeyboardTranslator keyboardTranslator;
     private VirtualController virtualController;
     private HotkeyOverlay hotkeyOverlay;
+    private StreamZoom streamZoom;
 
     private PreferenceConfiguration prefConfig;
     private SharedPreferences tombstonePrefs;
@@ -521,6 +523,13 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 (keyMap, direction, modifiers) -> conn.sendKeyboardInput(keyMap, direction, modifiers, (byte)0),
                 this::toggleKeyboard);
 
+        // Fork: two-finger pinch zoom and pan of the stream (Docs/zoom.md)
+        streamZoom = StreamZoom.create(this, streamView, () -> {
+            for (TouchContext context : touchContextMap) {
+                context.cancelTouch();
+            }
+        });
+
         if (prefConfig.usbDriver) {
             // Start the USB driver
             bindService(new Intent(this, UsbDriverService.class),
@@ -605,6 +614,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
                 if (hotkeyOverlay != null) {
                     hotkeyOverlay.hide();
+                }
+                if (streamZoom != null) {
+                    streamZoom.reset();
                 }
 
                 performanceOverlayView.setVisibility(View.GONE);
@@ -1584,6 +1596,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         normalizedX = Math.min(normalizedX, streamView.getWidth());
         normalizedY = Math.min(normalizedY, streamView.getHeight());
 
+        if (view != streamView) {
+            // Fork: the video point under a zoomed stream (Docs/zoom.md)
+            normalizedX = StreamZoom.toVideoX(streamView, normalizedX);
+            normalizedY = StreamZoom.toVideoY(streamView, normalizedY);
+        }
+
         normalizedX /= streamView.getWidth();
         normalizedY /= streamView.getHeight();
 
@@ -2022,6 +2040,11 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     return true;
                 }
 
+                if (streamZoom != null && view != null && streamZoom.onTouchEvent(view, event)) {
+                    // Two-finger zoom / pan of the stream
+                    return true;
+                }
+
                 // If this is the parent view, we'll offset our coordinates to appear as if they
                 // are relative to the StreamView like our StreamView touch events are.
                 float xOffset, yOffset;
@@ -2209,6 +2232,12 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // reaching the sides of the screen.
         eventX = Math.min(Math.max(eventX, 0), streamView.getWidth());
         eventY = Math.min(Math.max(eventY, 0), streamView.getHeight());
+
+        if (touchedView != streamView) {
+            // Fork: the video point under a zoomed stream (Docs/zoom.md)
+            eventX = StreamZoom.toVideoX(streamView, eventX);
+            eventY = StreamZoom.toVideoY(streamView, eventY);
+        }
 
         conn.sendMousePosition((short)eventX, (short)eventY, (short)streamView.getWidth(), (short)streamView.getHeight());
     }

@@ -7,8 +7,13 @@ same key.
 
 ## For the user
 
-- When the app opens (at most once an hour) it checks for a newer build.
-  If there is one, it shows **Update available** with what changed.
+- When the PC list or app list opens, it checks for a newer build, at most
+  every 10 minutes after a successful check. A failed check (no network
+  yet) doesn't count, so the next screen tries again. If there is a newer
+  build, it shows **Update available** with what changed.
+- **Check for updates button** (download icon in the PC list header: top
+  right in portrait, under ＋ in landscape): checks right now, even after
+  *Later*. It turns **green** while a newer version is known.
   **Update** downloads it with a progress bar. Android then asks
   *"Do you want to update this app?"*: tap **Update**.
 - The first time, Android asks you to allow "Install unknown apps" for
@@ -46,11 +51,17 @@ Only uninstalling loses it.
   - `InstallReceiver`: install session status. It starts Android's
     confirmation screen and reports failures.
   - `CheckUpdatesPreference`: the settings row.
+  - `Updater.setupButton()`: the header button. A successful check stores
+    `last_check` and `latest_code` in the `updater` preferences; the button
+    is green while `latest_code` is above the installed versionCode.
 - `app/src/release/AndroidManifest.xml`: `REQUEST_INSTALL_PACKAGES` and the
   receiver (release builds only).
-- Upstream files touched: `PcView.onResume()` calls
-  `Updater.checkOnLaunch(this)`; `res/xml/preferences.xml` has the Updates
-  category. Strings are in `res/values/strings_fork.xml`.
+- Upstream files touched: `PcView.onResume()` and `AppView.onResume()` call
+  `Updater.checkOnLaunch(this)`. Coming back from a stream lands on the app
+  list, so PcView alone missed new releases. `PcView.onCreate()` calls
+  `Updater.setupButton()`. The `checkUpdatesButton` is in both
+  `activity_pc_view.xml` layouts (icon `drawable/ic_check_updates.xml`).
+  `res/xml/preferences.xml` has the Updates category. Strings are in `res/values/strings_fork.xml`.
 
 ## Testing an update locally
 

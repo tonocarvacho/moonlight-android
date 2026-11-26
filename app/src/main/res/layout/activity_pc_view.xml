@@ -86,4 +86,19 @@
         android:preferKeepClear="true"
         style="?android:attr/borderlessButtonStyle"/>
 
+    <!-- Fork: check for updates (Docs/updates.md) -->
+    <ImageButton
+        android:id="@+id/checkUpdatesButton"
+        android:layout_width="70dp"
+        android:layout_height="65dp"
+        android:cropToPadding="false"
+        android:scaleType="fitXY"
+        android:layout_alignParentTop="true"
+        android:layout_toLeftOf="@+id/manuallyAddPc"
+        android:layout_toStartOf="@+id/manuallyAddPc"
+        android:preferKeepClear="true"
+        android:src="@drawable/ic_check_updates"
+        android:contentDescription="@string/title_check_updates"
+        style="?android:attr/borderlessButtonStyle"/>
+
 </RelativeLayout>

@@ -6,6 +6,7 @@ import android.view.View;
 
 import com.limelight.nvstream.NvConnection;
 import com.limelight.nvstream.input.MouseButtonPacket;
+import com.limelight.zoom.StreamZoom;
 
 public class AbsoluteTouchContext implements TouchContext {
     private int lastTouchDownX = 0;
@@ -113,6 +114,10 @@ public class AbsoluteTouchContext implements TouchContext {
         // reaching the sides of the screen.
         eventX = Math.min(Math.max(eventX, 0), targetView.getWidth());
         eventY = Math.min(Math.max(eventY, 0), targetView.getHeight());
+
+        // Fork: the video point under a zoomed stream (Docs/zoom.md)
+        eventX = (int) StreamZoom.toVideoX(targetView, eventX);
+        eventY = (int) StreamZoom.toVideoY(targetView, eventY);
 
         conn.sendMousePosition((short)eventX, (short)eventY, (short)targetView.getWidth(), (short)targetView.getHeight());
     }

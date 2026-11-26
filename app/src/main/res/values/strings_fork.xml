@@ -25,7 +25,7 @@
     <string name="title_check_updates">Check for updates</string>
     <string name="summary_check_updates">Installed: %1$s</string>
     <string name="title_checkbox_auto_update_check">Check when the app opens</string>
-    <string name="summary_checkbox_auto_update_check">Offer new versions from GitHub (at most once an hour)</string>
+    <string name="summary_checkbox_auto_update_check">Offer new versions from GitHub (every 10 minutes at most)</string>
     <string name="update_checking">Checking for updates…</string>
     <string name="update_up_to_date">You have the latest version (%1$s)</string>
     <string name="update_check_failed">Couldn\'t check for updates: %1$s</string>
@@ -42,4 +42,8 @@
     <string name="update_open_settings">Open settings</string>
     <string name="update_installing">Installing update…</string>
     <string name="update_install_failed">Update failed: %1$s</string>
+
+    <!-- Stream zoom (Docs/zoom.md) -->
+    <string name="title_checkbox_stream_zoom">Pinch to zoom the stream</string>
+    <string name="summary_checkbox_stream_zoom">Two fingers: pinch to zoom in or out, drag to move the zoomed stream. Two-finger scroll still works when not zoomed in</string>
 </resources>
