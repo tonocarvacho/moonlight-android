@@ -77,11 +77,12 @@ public class HotkeyPreviewActivity extends Activity {
                 }
                 if (event.getActionMasked() == MotionEvent.ACTION_UP) {
                     // Same mapping as absolute touch in Game
-                    float x = Math.min(Math.max(event.getX() - stream.getX(), 0), stream.getWidth());
-                    float y = Math.min(Math.max(event.getY() - stream.getY(), 0), stream.getHeight());
+                    float x = StreamZoom.toVideoX(stream, event.getX() - stream.getX());
+                    float y = StreamZoom.toVideoY(stream, event.getY() - stream.getY());
+                    x = Math.min(Math.max(x, 0), stream.getWidth());
+                    y = Math.min(Math.max(y, 0), stream.getHeight());
                     onLine(String.format(java.util.Locale.ROOT, "tap at video %.0f%%, %.0f%%  (zoom %.2fx)",
-                            100 * StreamZoom.toVideoX(stream, x) / stream.getWidth(),
-                            100 * StreamZoom.toVideoY(stream, y) / stream.getHeight(), stream.getScaleX()));
+                            100 * x / stream.getWidth(), 100 * y / stream.getHeight(), stream.getScaleX()));
                 }
                 else if (event.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN) {
                     onLine("finger " + event.getPointerCount() + " down (Moonlight)");

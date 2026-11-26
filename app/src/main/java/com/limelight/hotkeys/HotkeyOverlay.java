@@ -10,6 +10,7 @@ import android.view.DisplayCutout;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -19,6 +20,7 @@ import android.widget.Toast;
 import com.limelight.LimeLog;
 import com.limelight.R;
 import com.limelight.preferences.PreferenceConfiguration;
+import com.limelight.zoom.StreamZoom;
 
 import org.json.JSONException;
 
@@ -175,8 +177,10 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         // In portrait (keys below the stream) the empty part of the key area
         // swallows touches in absolute-touch mode, so a missed key can't click
         // the PC. In trackpad mode it works as a touchpad, like the bars.
+        // Where a zoomed stream has been moved over it, touches reach the video.
         blocker = new View(activity);
-        blocker.setOnTouchListener((v, e) -> true);
+        blocker.setOnTouchListener((v, e) -> e.getActionMasked() != MotionEvent.ACTION_DOWN ||
+                !StreamZoom.isOverVideo(streamView, e.getX() + v.getLeft(), e.getY() + v.getTop()));
         parent.addView(blocker, new FrameLayout.LayoutParams(0, 0));
 
         toolbar = new HotkeyColumn.Toolbar(activity, sectionColor(1), this);

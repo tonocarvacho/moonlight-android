@@ -112,12 +112,12 @@ public class AbsoluteTouchContext implements TouchContext {
         // Normalize these to the view size. We can't just drop them because we won't always get an event
         // right at the boundary of the view, so dropping them would result in our cursor never really
         // reaching the sides of the screen.
-        eventX = Math.min(Math.max(eventX, 0), targetView.getWidth());
-        eventY = Math.min(Math.max(eventY, 0), targetView.getHeight());
-
         // Fork: the video point under a zoomed stream (Docs/zoom.md)
         eventX = (int) StreamZoom.toVideoX(targetView, eventX);
         eventY = (int) StreamZoom.toVideoY(targetView, eventY);
+
+        eventX = Math.min(Math.max(eventX, 0), targetView.getWidth());
+        eventY = Math.min(Math.max(eventY, 0), targetView.getHeight());
 
         conn.sendMousePosition((short)eventX, (short)eventY, (short)targetView.getWidth(), (short)targetView.getHeight());
     }

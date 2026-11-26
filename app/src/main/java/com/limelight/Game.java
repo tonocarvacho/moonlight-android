@@ -1588,6 +1588,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         if (view != streamView) {
             normalizedX -= streamView.getX();
             normalizedY -= streamView.getY();
+
+            // Fork: the video point under a zoomed stream (Docs/zoom.md)
+            normalizedX = StreamZoom.toVideoX(streamView, normalizedX);
+            normalizedY = StreamZoom.toVideoY(streamView, normalizedY);
         }
 
         normalizedX = Math.max(normalizedX, 0.0f);
@@ -1595,12 +1599,6 @@ public class Game extends Activity implements SurfaceHolder.Callback,
 
         normalizedX = Math.min(normalizedX, streamView.getWidth());
         normalizedY = Math.min(normalizedY, streamView.getHeight());
-
-        if (view != streamView) {
-            // Fork: the video point under a zoomed stream (Docs/zoom.md)
-            normalizedX = StreamZoom.toVideoX(streamView, normalizedX);
-            normalizedY = StreamZoom.toVideoY(streamView, normalizedY);
-        }
 
         normalizedX /= streamView.getWidth();
         normalizedY /= streamView.getHeight();
@@ -2230,14 +2228,14 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         // Normalize these to the view size. We can't just drop them because we won't always get an event
         // right at the boundary of the view, so dropping them would result in our cursor never really
         // reaching the sides of the screen.
-        eventX = Math.min(Math.max(eventX, 0), streamView.getWidth());
-        eventY = Math.min(Math.max(eventY, 0), streamView.getHeight());
-
         if (touchedView != streamView) {
             // Fork: the video point under a zoomed stream (Docs/zoom.md)
             eventX = StreamZoom.toVideoX(streamView, eventX);
             eventY = StreamZoom.toVideoY(streamView, eventY);
         }
+
+        eventX = Math.min(Math.max(eventX, 0), streamView.getWidth());
+        eventY = Math.min(Math.max(eventY, 0), streamView.getHeight());
 
         conn.sendMousePosition((short)eventX, (short)eventY, (short)streamView.getWidth(), (short)streamView.getHeight());
     }

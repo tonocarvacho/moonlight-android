@@ -1,24 +1,23 @@
 package com.limelight.zoom;
 
 import android.animation.ValueAnimator;
-import android.annotation.SuppressLint;
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Build;
 import android.preference.PreferenceManager;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 
 /**
  * Two-finger pinch zoom and pan of the stream, like a video player
  * (Docs/zoom.md). The zoom is a scale about a pivot set on the stream view
- * itself, so the stream view's box (its layout bounds) is the viewport:
- * the zoomed video always fills it and is masked outside it.
+ * itself (no translation, so Game's getX()-based offsets stay right). The
+ * whole screen (the stream's parent) is the viewport: the zoomed video can
+ * grow into the bars / key area. Along an axis where it is bigger than the
+ * screen it always fills the screen; where it is smaller it can be moved
+ * anywhere on screen. At 1x it is back in its own box.
  *
  * Gestures, once a second finger is down:
  * - the fingers move apart / together: zoom (and pan with them),
@@ -45,7 +44,7 @@ public final class StreamZoom {
     }
 
     private final View stream;
-    private final Mask mask;
+    private final View parent;
     private final Runnable cancelTouches;
     private final float slop;
 
@@ -60,7 +59,7 @@ public final class StreamZoom {
 
     /**
      * Returns null when turned off in settings or before Android 8 (SurfaceView
-     * scaling and clipOutRect). cancelTouches cancels Moonlight's touch
+     * scaling). cancelTouches cancels Moonlight's touch
      * contexts when a zoom gesture takes over.
      */
     public static StreamZoom create(Context context, View stream, Runnable cancelTouches) {
@@ -76,13 +75,7 @@ public final class StreamZoom {
         this.cancelTouches = cancelTouches;
         this.slop = ViewConfiguration.get(context).getScaledTouchSlop();
 
-        // The mask sits right above the stream: below the hotkeys, on-screen
-        // controls and overlays, which are added after it.
-        ViewGroup parent = (ViewGroup) stream.getParent();
-        mask = new Mask(context);
-        mask.setVisibility(View.GONE);
-        parent.addView(mask, parent.indexOfChild(stream) + 1,
-                new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        this.parent = (View) stream.getParent();
 
         stream.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
             int w = r - l, h = b - t, ow = or - ol, oh = ob - ot;
@@ -93,7 +86,10 @@ public final class StreamZoom {
             }
             clampPivot();
             apply();
-            mask.setHole(l - mask.getLeft(), t - mask.getTop(), r - mask.getLeft(), b - mask.getTop());
+        });
+        parent.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            clampPivot();
+            apply();
         });
     }
 
@@ -266,10 +262,27 @@ public final class StreamZoom {
         }
     }
 
-    /** A pivot inside the box keeps the zoomed video covering all of it. */
+    /**
+     * Keeps the zoomed video on screen: covering the screen along an axis
+     * where it is bigger, inside it where it is smaller.
+     */
     private void clampPivot() {
-        pivotX = Math.max(0, Math.min(stream.getWidth(), pivotX));
-        pivotY = Math.max(0, Math.min(stream.getHeight(), pivotY));
+        if (scale <= 1f) {
+            return;
+        }
+        pivotX = clampPivot(pivotX, stream.getLeft(), stream.getWidth(), parent.getWidth());
+        pivotY = clampPivot(pivotY, stream.getTop(), stream.getHeight(), parent.getHeight());
+    }
+
+    /**
+     * One axis. The video spans origin + shift .. origin + shift + size * scale
+     * on screen, with shift = pivot * (1 - scale).
+     */
+    private float clampPivot(float pivot, int origin, int size, int screen) {
+        float shift = pivot * (1f - scale);
+        float a = -origin, b = screen - origin - size * scale;
+        shift = Math.max(Math.min(a, b), Math.min(Math.max(a, b), shift));
+        return shift / (1f - scale);
     }
 
     private void apply() {
@@ -277,49 +290,33 @@ public final class StreamZoom {
         stream.setPivotY(pivotY);
         stream.setScaleX(scale);
         stream.setScaleY(scale);
-        mask.setVisibility(scale > 1f ? View.VISIBLE : View.GONE);
     }
 
     private static float span(MotionEvent event, int i0, int i1) {
         return (float) Math.hypot(event.getX(i0) - event.getX(i1), event.getY(i0) - event.getY(i1));
     }
 
+    /** Whether a point in the parent's coordinates is on the (zoomed) video. */
+    public static boolean isOverVideo(View stream, float parentX, float parentY) {
+        Rect r = new Rect();
+        stream.getHitRect(r);
+        return r.contains((int) parentX, (int) parentY);
+    }
+
     /**
-     * Maps x in the stream view's unzoomed box (0..width, already clamped to
-     * it) to the video x shown there, through the view's scale and pivot.
+     * Maps x relative to the stream view's position (x - getX(), any value:
+     * the point may be outside the box) to the video x shown there, through
+     * the view's scale and pivot. Clamp the result to 0..width afterwards, so
+     * a touch off the video hits its visible edge.
      */
     public static float toVideoX(View stream, float x) {
         float s = stream.getScaleX();
-        return s == 1f ? x : stream.getPivotX() + (x - stream.getPivotX() - stream.getTranslationX()) / s;
+        return s == 1f ? x : stream.getPivotX() + (x - stream.getPivotX()) / s;
     }
 
     /** Like {@link #toVideoX}, for y. */
     public static float toVideoY(View stream, float y) {
         float s = stream.getScaleY();
-        return s == 1f ? y : stream.getPivotY() + (y - stream.getPivotY() - stream.getTranslationY()) / s;
-    }
-
-    /** Black outside the stream box, so the zoomed video stays inside it. Takes no touches. */
-    @SuppressLint("ViewConstructor")
-    private static final class Mask extends View {
-        private final Rect hole = new Rect();
-
-        Mask(Context context) {
-            super(context);
-            setWillNotDraw(false);
-        }
-
-        void setHole(int l, int t, int r, int b) {
-            hole.set(l, t, r, b);
-            invalidate();
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            canvas.save();
-            canvas.clipOutRect(hole);
-            canvas.drawColor(Color.BLACK);
-            canvas.restore();
-        }
+        return s == 1f ? y : stream.getPivotY() + (y - stream.getPivotY()) / s;
     }
 }
