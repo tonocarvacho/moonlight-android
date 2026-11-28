@@ -673,7 +673,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                     hotkeyOverlay.hide();
                 }
                 if (streamZoom != null) {
-                    streamZoom.reset();
+                    streamZoom.setPictureInPicture(true);
                 }
 
                 performanceOverlayView.setVisibility(View.GONE);
@@ -695,6 +695,9 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 }
                 if (hotkeyOverlay != null) {
                     hotkeyOverlay.show();
+                }
+                if (streamZoom != null) {
+                    streamZoom.setPictureInPicture(false);
                 }
 
                 if (prefConfig.enablePerfOverlay) {

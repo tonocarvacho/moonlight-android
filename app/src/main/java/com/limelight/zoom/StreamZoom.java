@@ -2,6 +2,7 @@ package com.limelight.zoom;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Rect;
 import android.os.Build;
 import android.preference.PreferenceManager;
@@ -29,11 +30,15 @@ import android.view.animation.DecelerateInterpolator;
  *
  * Absolute touch maps fingers through the zoom with {@link #toVideoX} /
  * {@link #toVideoY}; trackpad mode is unaffected (deltas keep their speed).
+ *
+ * The zoom and position are saved for landscape and portrait separately
+ * (pivot as a fraction of the stream box) and restored in later streams.
  */
 public final class StreamZoom {
     public static final String PREF = "checkbox_stream_zoom";
     private static final float MAX_SCALE = 5f;
     private static final float SNAP_TO_ONE = 1.08f;
+    private static final String SAVED_PREFS = "stream_zoom";
 
     private enum State {
         IDLE,      // fewer than two fingers
@@ -47,6 +52,7 @@ public final class StreamZoom {
     private final View parent;
     private final Runnable cancelTouches;
     private final float slop;
+    private final SharedPreferences saved;
 
     private State state = State.IDLE;
     private int id0, id1;
@@ -56,6 +62,11 @@ public final class StreamZoom {
     private float scale = 1f;
     private float pivotX, pivotY;
     private ValueAnimator snap;
+
+    // Orientation of the saved state in use (null until the first layout)
+    private Boolean landscape;
+    private int lastWidth, lastHeight;
+    private boolean pictureInPicture;
 
     /**
      * Returns null when turned off in settings or before Android 8 (SurfaceView
@@ -74,30 +85,79 @@ public final class StreamZoom {
         this.stream = stream;
         this.cancelTouches = cancelTouches;
         this.slop = ViewConfiguration.get(context).getScaledTouchSlop();
+        this.saved = context.getSharedPreferences(SAVED_PREFS, Context.MODE_PRIVATE);
 
         this.parent = (View) stream.getParent();
 
-        stream.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            int w = r - l, h = b - t, ow = or - ol, oh = ob - ot;
-            if (ow > 0 && oh > 0 && (w != ow || h != oh)) {
-                // Same spot of the video after a resize (rotation, keys shown/hidden)
-                pivotX = pivotX * w / ow;
-                pivotY = pivotY * h / oh;
-            }
-            clampPivot();
-            apply();
-        });
-        parent.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
-            clampPivot();
-            apply();
-        });
+        View.OnLayoutChangeListener relayout = (v, l, t, r, b, ol, ot, or, ob) -> onLayout();
+        stream.addOnLayoutChangeListener(relayout);
+        parent.addOnLayoutChangeListener(relayout);
+        onLayout();
     }
 
-    /** Back to 1x (picture-in-picture). */
-    public void reset() {
+    /**
+     * Picture-in-picture shows the stream at 1x; leaving it brings the zoom
+     * back. The saved zoom isn't changed.
+     */
+    public void setPictureInPicture(boolean pip) {
+        if (pip == pictureInPicture) {
+            return;
+        }
+        pictureInPicture = pip;
         stopSnap();
-        scale = 1f;
+        state = State.IDLE;
+        if (!pip) {
+            // Reload, in case the orientation changed meanwhile
+            landscape = null;
+            onLayout();
+        }
         apply();
+    }
+
+    /** After a layout pass of the stream or the screen. */
+    private void onLayout() {
+        int w = stream.getWidth(), h = stream.getHeight();
+        if (w <= 0 || h <= 0 || parent.getWidth() <= 0 || parent.getHeight() <= 0 || pictureInPicture) {
+            return;
+        }
+        boolean nowLandscape = parent.getWidth() > parent.getHeight();
+        if (landscape == null || landscape != nowLandscape) {
+            // First layout or rotation: each orientation has its own zoom
+            stopSnap();
+            landscape = nowLandscape;
+            load(w, h);
+        }
+        else if (w != lastWidth || h != lastHeight) {
+            // Same spot of the video after a resize (keys shown/hidden)
+            pivotX = pivotX * w / lastWidth;
+            pivotY = pivotY * h / lastHeight;
+        }
+        lastWidth = w;
+        lastHeight = h;
+        clampPivot();
+        apply();
+    }
+
+    private String key(String name) {
+        return (landscape ? "landscape_" : "portrait_") + name;
+    }
+
+    private void load(int w, int h) {
+        scale = Math.max(1f, Math.min(MAX_SCALE, saved.getFloat(key("scale"), 1f)));
+        pivotX = saved.getFloat(key("pivot_x"), 0.5f) * w;
+        pivotY = saved.getFloat(key("pivot_y"), 0.5f) * h;
+    }
+
+    /** Saves the zoom of the current orientation (at the end of a gesture). */
+    private void save(float savedScale) {
+        if (landscape == null || stream.getWidth() <= 0 || stream.getHeight() <= 0) {
+            return;
+        }
+        saved.edit()
+                .putFloat(key("scale"), savedScale)
+                .putFloat(key("pivot_x"), pivotX / stream.getWidth())
+                .putFloat(key("pivot_y"), pivotY / stream.getHeight())
+                .apply();
     }
 
     /**
@@ -105,6 +165,9 @@ public final class StreamZoom {
      * full-screen background touch view). Returns true if it was consumed.
      */
     public boolean onTouchEvent(View view, MotionEvent event) {
+        if (pictureInPicture) {
+            return false;
+        }
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 state = State.IDLE;
@@ -252,6 +315,10 @@ public final class StreamZoom {
                 apply();
             });
             snap.start();
+            save(1f);
+        }
+        else {
+            save(scale);
         }
     }
 
@@ -286,10 +353,11 @@ public final class StreamZoom {
     }
 
     private void apply() {
+        float s = pictureInPicture ? 1f : scale;
         stream.setPivotX(pivotX);
         stream.setPivotY(pivotY);
-        stream.setScaleX(scale);
-        stream.setScaleY(scale);
+        stream.setScaleX(s);
+        stream.setScaleY(s);
     }
 
     private static float span(MotionEvent event, int i0, int i1) {

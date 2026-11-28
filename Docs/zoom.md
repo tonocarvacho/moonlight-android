@@ -14,8 +14,12 @@ the stream** (on by default). Needs Android 8+.
   where it is bigger than the screen it always fills the screen (no black
   gaps); where it is smaller (e.g. its height in portrait at 2x) you can
   drag it anywhere on screen. At 1x it is back in its own box.
-- Rotating the phone, or showing/hiding the hotkeys, keeps the zoom and
-  the spot you're looking at. Picture-in-picture resets it to 1x.
+- The zoom and position are **remembered**, separately for portrait and
+  landscape: rotating the phone switches to that orientation's own zoom,
+  and the next stream (even after closing the app or rebooting) starts
+  where you left each one. Showing/hiding the hotkeys keeps the zoom and
+  the spot you're looking at. Picture-in-picture shows the stream at 1x;
+  leaving it brings the zoom back.
 
 What still goes to the PC:
 
@@ -44,6 +48,12 @@ In trackpad mode the cursor speed doesn't change with the zoom.
   video is bigger than the screen it must cover it, otherwise stay inside
   it. Re-clamped when the stream or the window is resized (rotation,
   keys shown/hidden); a resize keeps the pivot at the same spot of the video.
+- Saved state: SharedPreferences file `stream_zoom`, keys
+  `portrait_|landscape_` + `scale`, `pivot_x`, `pivot_y` (pivot as a
+  fraction of the stream box, so it survives size changes). Written at the
+  end of each zoom/pan gesture (1x when it snaps back). Orientation =
+  window wider than tall; on the first layout and on every orientation
+  change the state of that orientation is loaded, then clamped.
 - Gesture detection: when a second finger goes down, the moves after it
   are held back from Moonlight's touch handling until the gesture is clear:
   - the finger distance changes by more than 1.5× touch slop: zoom,
@@ -65,7 +75,7 @@ Upstream files touched (keep when merging):
 - `Game.java`: create `streamZoom` after the hotkey overlay; call
   `streamZoom.onTouchEvent()` at the top of the finger branch of
   `handleMotionEvent()` (after the on-screen-controller config check);
-  `reset()` when entering PiP; `toVideoX/Y` before the clamp in
+  `setPictureInPicture(true/false)` when entering / leaving PiP; `toVideoX/Y` before the clamp in
   `getStreamViewRelativeNormalizedXY()` and `updateMousePosition()` for
   events that don't come from the stream view itself.
 - `AbsoluteTouchContext.updatePosition()`: `toVideoX/Y` before the clamp.
@@ -86,4 +96,8 @@ Tested on the S24 AVD: pinch in/out in portrait and landscape, the video
 growing into the bars / key area, dragging it around the screen, clamping
 at the screen edges, zoom kept across rotation, snap back to 1x, the tap
 mapping (also on video outside its box), two-finger scroll and two-finger
-tap at 1x still going to Moonlight.
+tap at 1x still going to Moonlight. Saved zoom: portrait and landscape
+zoomed differently, each restored after rotating back and after a
+force-stop and relaunch (prefs checked with `run-as … cat
+shared_prefs/stream_zoom.xml`). `adb emu rotate` cycles through 4
+rotations; the activity skips upside-down portrait.
