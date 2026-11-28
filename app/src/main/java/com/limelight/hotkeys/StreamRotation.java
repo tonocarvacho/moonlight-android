@@ -20,11 +20,12 @@ public final class StreamRotation {
 
     /**
      * The orientation Game should request on a regular (non-square) screen.
-     * The on-screen controller doesn't support portrait, so it keeps landscape.
+     * The on-screen controller doesn't support portrait; with the overlay on
+     * it is hidden there and the hotkeys show instead (Game, LandscapeController).
      */
-    public static int requested(Context context, boolean onscreenController) {
+    public static int requested(Context context) {
         String mode = PreferenceManager.getDefaultSharedPreferences(context).getString(PREF, SENSOR);
-        if (onscreenController || !HotkeyOverlay.isEnabled(context) || LANDSCAPE.equals(mode)) {
+        if (!HotkeyOverlay.isEnabled(context) || LANDSCAPE.equals(mode)) {
             return ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE;
         }
         // USER honours the phone's auto-rotate switch; SENSOR turns with the phone regardless

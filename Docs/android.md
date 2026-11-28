@@ -10,7 +10,7 @@ Fork of [moonlight-stream/moonlight-android](https://github.com/moonlight-stream
 - Debug builds: `com.tonycgames.moonlight.debug`, label "Moonlight (Debug)",
   so a dev build and the release can live on the same phone.
 
-Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys beside the stream, editable in-stream, portrait mode),
+Fork features: [hotkey overlay](hotkeys.md) (desktop hotkeys beside the stream, editable in-stream, portrait mode; portrait shows hotkeys, landscape the on-screen controller),
 [in-app updates](updates.md) (the app updates itself from GitHub releases;
 check-for-updates button in the PC list header),
 [stream zoom](zoom.md) (pinch to zoom the stream, two-finger drag to move it).
@@ -78,6 +78,7 @@ changed.
 | Symptom | Cause → fix |
 | --- | --- |
 | "App not installed" on update | Signed with another key (e.g. a debug build with the same id) or lower versionCode. |
+| PC offline / "failed to connect to 192.168.1.88" on mobile data, works on Wi-Fi | The fork has its own PC list (separate app id); mDNS only saved the LAN address. Add the PC by its Tailscale IP (`tailscale ip -4` on the PC, e.g. `100.64.187.25`) with the **+** button: same UUID, so it is stored as the manual address of the existing PC and polled alongside the LAN one. |
 | Android warns about unknown apps | Normal for sideloaded APKs: allow installs from the browser/Files app once. |
 | `NDK not configured` / native build fails | Install the NDK version in `ndkVersion` with `sdkmanager`. |
 | Empty `moonlight-common-c` folder | Cloned without `--recursive`: `git submodule update --init --recursive`. |

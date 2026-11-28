@@ -190,6 +190,17 @@ final class HotkeyEditor extends Dialog {
         box.addView(text("Turn the phone to portrait: the stream goes in one half, the keys in the other. " +
                 "▾ on the keys hides them; the stream then uses the whole screen.", 12, DIM), matchWrap());
 
+        // Landscape: on-screen controller or hotkeys
+        Switch controller = new Switch(ctx);
+        controller.setText("Landscape: on-screen controller");
+        controller.setTextColor(TEXT);
+        controller.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        controller.setChecked(overlay.controllerInLandscape());
+        controller.setOnCheckedChangeListener((b, checked) -> overlay.setControllerInLandscape(checked));
+        box.addView(controller, topMargin(matchWrap(), 12));
+        box.addView(text("On: landscape shows only the game controller, portrait the hotkeys. " +
+                "Off: the hotkeys show in landscape too.", 12, DIM), matchWrap());
+
         Button resetPos = button("Reset section positions", CYAN);
         resetPos.setOnClickListener(v -> {
             overlay.resetPositions();

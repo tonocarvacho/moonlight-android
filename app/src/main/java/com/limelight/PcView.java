@@ -23,6 +23,7 @@ import com.limelight.preferences.StreamSettings;
 import com.limelight.ui.AdapterFragment;
 import com.limelight.ui.AdapterFragmentCallbacks;
 import com.limelight.update.Updater;
+import com.limelight.hotkeys.LandscapeController;
 import com.limelight.utils.Dialog;
 import com.limelight.utils.HelpLauncher;
 import com.limelight.utils.ServerHelper;
@@ -171,6 +172,8 @@ public class PcView extends Activity implements AdapterFragmentCallbacks {
 
         // Fork: check for updates button (Docs/updates.md)
         Updater.setupButton(this, findViewById(R.id.checkUpdatesButton));
+        // Fork: on-screen controller on by default (Docs/hotkeys.md)
+        LandscapeController.applyDefault(this);
 
         getFragmentManager().beginTransaction()
             .replace(R.id.pcFragmentContainer, new AdapterFragment())

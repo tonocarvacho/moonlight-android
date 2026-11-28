@@ -105,6 +105,8 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     private HotkeyArrangeLayer arrangeLayer;
     private HotkeyEditor editor;
     private boolean hidden;
+    /** Landscape with the on-screen controller on: the keys make way for it. */
+    private boolean yielded;
     private boolean collapsed;
     private boolean portrait;
     private int[] lastGeometry;
@@ -252,6 +254,34 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     public void show() {
         hidden = false;
         applyVisibility();
+    }
+
+    /** Game: true in landscape while the on-screen controller is shown there. */
+    public void setYielded(boolean value) {
+        if (yielded == value) {
+            return;
+        }
+        yielded = value;
+        if (value) {
+            if (arrangeLayer != null) {
+                stopArranging();
+            }
+            releaseAll();
+        }
+        applyVisibility();
+    }
+
+    /** Not on screen: picture-in-picture or making way for the controller. */
+    private boolean gone() {
+        return hidden || yielded;
+    }
+
+    boolean controllerInLandscape() {
+        return LandscapeController.isOn(activity);
+    }
+
+    void setControllerInLandscape(boolean on) {
+        LandscapeController.set(activity, on);
     }
 
     /** Lets go of every key and modifier, so nothing stays stuck on the host. */
@@ -441,11 +471,11 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     }
 
     private void applyVisibility() {
-        boolean keys = !hidden && !collapsed;
+        boolean keys = !gone() && !collapsed;
         for (HotkeyColumn c : columns) {
             c.setVisibility(keys ? View.VISIBLE : View.GONE);
         }
-        handle.setVisibility(!hidden && collapsed ? View.VISIBLE : View.GONE);
+        handle.setVisibility(!gone() && collapsed ? View.VISIBLE : View.GONE);
         blocker.setVisibility(keys && portrait && !trackpad ? View.VISIBLE : View.GONE);
         lastGeometry = null;
         parent.post(this::layout);
@@ -582,7 +612,7 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
     // ---- Arrange mode (drag keys to reorder, drag columns to move) ----
 
     void startArranging() {
-        if (arrangeLayer != null || hidden) {
+        if (arrangeLayer != null || gone()) {
             return;
         }
         releaseAll();
@@ -690,7 +720,7 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         }
 
         boolean nowPortrait = height > width;
-        boolean keysShown = !hidden && !collapsed;
+        boolean keysShown = !gone() && !collapsed;
         boolean above = keysAbove();
         int keyHeight = keyHeightPx();
         int margin = px(6);
@@ -700,7 +730,7 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         // Portrait: the stream is fitted to the width, at the top (or bottom).
         // Otherwise it keeps Game's own layout (centered, letterboxed).
         int streamHeight = (int) Math.ceil(width / streamAspect);
-        boolean placeStream = nowPortrait && !hidden && streamHeight < height;
+        boolean placeStream = nowPortrait && !gone() && streamHeight < height;
         if (placeStream) {
             int gravity = !keysShown ? Gravity.CENTER : (above ? Gravity.BOTTOM : Gravity.TOP) | Gravity.CENTER_HORIZONTAL;
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(width, streamHeight, gravity);
@@ -831,7 +861,7 @@ public final class HotkeyOverlay implements HotkeyKeyView.Listener, HotkeyColumn
         placement.clear();
 
         float opacity = prefs.getInt(PREF_OPACITY, 80) / 100f;
-        boolean keysShown = !hidden && !collapsed;
+        boolean keysShown = !gone() && !collapsed;
         int stackGap = px(30); // room for the arrange-mode grip
         int[] tops = new int[HotkeyLayout.SECTIONS];
         for (int k = 0; k < HotkeyLayout.SECTIONS; k++) {

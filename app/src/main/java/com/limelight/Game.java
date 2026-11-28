@@ -6,6 +6,7 @@ import com.limelight.binding.audio.AndroidAudioRenderer;
 import com.limelight.binding.input.ControllerHandler;
 import com.limelight.binding.input.KeyboardTranslator;
 import com.limelight.hotkeys.HotkeyOverlay;
+import com.limelight.hotkeys.LandscapeController;
 import com.limelight.hotkeys.StreamRotation;
 import com.limelight.zoom.StreamZoom;
 import com.limelight.binding.input.capture.InputCaptureManager;
@@ -50,6 +51,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.preference.PreferenceManager;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -116,6 +118,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     private KeyboardTranslator keyboardTranslator;
     private VirtualController virtualController;
     private HotkeyOverlay hotkeyOverlay;
+    private SharedPreferences.OnSharedPreferenceChangeListener controllerSwitch;
     private StreamZoom streamZoom;
 
     private PreferenceConfiguration prefConfig;
@@ -221,6 +224,7 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 getResources().getString(R.string.conn_establishing_msg), true);
 
         // Read the stream preferences
+        LandscapeController.applyDefault(this);
         prefConfig = PreferenceConfiguration.readPreferences(this);
         tombstonePrefs = Game.this.getSharedPreferences("DecoderTombstone", 0);
 
@@ -522,6 +526,16 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 prefConfig.width, prefConfig.height,
                 (keyMap, direction, modifiers) -> conn.sendKeyboardInput(keyMap, direction, modifiers, (byte)0),
                 this::toggleKeyboard);
+        if (hotkeyOverlay != null) {
+            // Fork: the hotkey editor can switch the on-screen controller (Docs/hotkeys.md)
+            controllerSwitch = (prefs, key) -> {
+                if (LandscapeController.PREF.equals(key)) {
+                    setOnscreenController(prefs.getBoolean(key, true));
+                }
+            };
+            PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(controllerSwitch);
+        }
+        updateTouchOverlays();
 
         // Fork: two-finger pinch zoom and pan of the stream (Docs/zoom.md)
         streamZoom = StreamZoom.create(this, streamView, () -> {
@@ -588,8 +602,51 @@ public class Game extends Activity implements SurfaceHolder.Callback,
         else {
             // For regular displays, we always request landscape
             // Fork: unless portrait is allowed for the hotkey overlay (Docs/hotkeys.md)
-            setRequestedOrientation(StreamRotation.requested(this, prefConfig.onscreenController));
+            setRequestedOrientation(StreamRotation.requested(this));
         }
+    }
+
+    // Fork (Docs/hotkeys.md): with the hotkey overlay, portrait shows the hotkeys and
+    // landscape the on-screen controller, or the hotkeys when the controller is off.
+    private void updateTouchOverlays() {
+        if (isHidingOverlays || hotkeyOverlay == null) {
+            return;
+        }
+        boolean landscape = getResources().getConfiguration().orientation != Configuration.ORIENTATION_PORTRAIT;
+        if (virtualController != null) {
+            if (landscape) {
+                virtualController.show();
+            }
+            else {
+                virtualController.hide();
+            }
+        }
+        hotkeyOverlay.setYielded(landscape && virtualController != null);
+    }
+
+    private void setOnscreenController(boolean on) {
+        if (on == (virtualController != null) || controllerHandler == null) {
+            return;
+        }
+        // The controller mask counts the on-screen pad while it is on
+        prefConfig.onscreenController = on;
+        if (on) {
+            virtualController = new VirtualController(controllerHandler,
+                    (FrameLayout)streamView.getParent(),
+                    this);
+            virtualController.refreshLayout();
+        }
+        else {
+            // Let go of anything still held (also stops its retransmits sending it again)
+            VirtualController.ControllerInputContext input = virtualController.getControllerInputContext();
+            input.inputMap = 0;
+            input.leftTrigger = input.rightTrigger = 0;
+            input.leftStickX = input.leftStickY = input.rightStickX = input.rightStickY = 0;
+            controllerHandler.reportOscState(0, (short)0, (short)0, (short)0, (short)0, (byte)0, (byte)0);
+            virtualController.removeElements();
+            virtualController = null;
+        }
+        updateTouchOverlays();
     }
 
     @Override
@@ -653,6 +710,8 @@ public class Game extends Activity implements SurfaceHolder.Callback,
                 UiHelper.notifyStreamExitingPiP(this);
             }
         }
+
+        updateTouchOverlays();
     }
 
     @TargetApi(Build.VERSION_CODES.O)
@@ -1062,6 +1121,10 @@ public class Game extends Activity implements SurfaceHolder.Callback,
     @Override
     protected void onDestroy() {
         super.onDestroy();
+
+        if (controllerSwitch != null) {
+            PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(controllerSwitch);
+        }
 
         if (controllerHandler != null) {
             controllerHandler.destroy();

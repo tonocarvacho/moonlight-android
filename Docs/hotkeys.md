@@ -7,8 +7,23 @@ stream takes one half of the screen and the keys the other.
 
 Settings → **Hotkey Overlay**: on/off (default on), opacity (default 80%),
 **Screen rotation** (default "Turn with the phone"; also "Follow the phone's
-auto-rotate setting" or "Landscape only"). Rotation needs the overlay on and
-the on-screen controller off (upstream's controller is landscape-only).
+auto-rotate setting" or "Landscape only"). Rotation needs the overlay on
+(without it the stream stays landscape, like upstream).
+
+### Hotkeys or on-screen controller
+
+The fork turns upstream's on-screen controller ("Show on-screen controls")
+**on by default** and switches with the phone:
+
+- **portrait**: the hotkeys, no controller (upstream's controller is
+  landscape-only);
+- **landscape**: only the on-screen controller, no hotkeys.
+
+⚙ → **Landscape: on-screen controller** switches it during the stream (it
+is the same setting as Settings → On-screen Controls). Off: no controller,
+and the hotkeys show in landscape too. To reach ⚙ while the controller is
+on, turn the phone to portrait. With the hotkey overlay off in Settings,
+the controller works as upstream (landscape, always shown).
 
 ## Using it
 
@@ -69,7 +84,8 @@ and the old Move / Nav / Pane / Vim pages.
 - **+ New hotkey** adds one to section 1. **Reset buttons to default**
   brings back the built-in sections and keys.
 - Key height (30–72 dp, default 42), opacity, keys above/below the stream in
-  portrait, **Reset section positions**.
+  portrait, **Landscape: on-screen controller** (above), **Reset section
+  positions**.
 - **✥ Arrange on screen**: every section gets an outline and a ⠿ grip in
   its colour; empty sections show as dashed "empty" boxes. Drag a key to
   any spot in any section (same rules as the board), or onto "Drop here to
@@ -132,7 +148,9 @@ The fake stream is a real SurfaceView with a labelled grid and the
 
 Use it to check a layout or to test overlay changes on an emulator (an
 S24-sized AVD is 1080x2340 at 450 dpi; AVD `s24_hotkeys`). It turns with the
-device like a real stream: `adb emu rotate` switches portrait/landscape.
+device like a real stream: `adb emu rotate` switches portrait/landscape. It
+follows the controller rule too (no controller drawn: in landscape with
+the switch on the keys hide and the log says "on-screen controller shown").
 
 ### Format
 
@@ -207,6 +225,11 @@ Package `com.limelight.hotkeys`, all fork-only:
   spot, section drag, hide drop zone).
 - `StreamRotation`: the orientation Game requests (Settings → Screen
   rotation).
+- `LandscapeController`: the on-screen controller setting (upstream's
+  `checkbox_show_onscreen_controls`) for the editor switch, and the
+  one-time fork default (on, flag `fork_osc_default_on`) applied in PcView
+  and Game. `HotkeyOverlay.setYielded()` hides the keys while the
+  controller is shown.
 - Keys avoid the display cutout's safe inset. On phones with a punch-hole
   camera on that edge in landscape, one column therefore overlaps the video
   slightly.
@@ -220,7 +243,11 @@ Upstream files touched (keep these when merging): `Game.java` (create the
 overlay with the stream size, hide it in PiP, release keys in `onStop`, add
 its modifiers in `getModifierState()`, `onExternalKeyUp` after a keyboard
 key-up, `StreamRotation.requested()` instead of the fixed landscape in
-`setPreferredOrientationForCurrentDisplay()`), `res/xml/preferences.xml`
+`setPreferredOrientationForCurrentDisplay()`, `updateTouchOverlays()` (controller
+in landscape, hotkeys in portrait; after a config change) and
+`setOnscreenController()` (a preference listener creates / removes the
+controller when ⚙ switches it), `LandscapeController.applyDefault()` before
+reading the preferences), `PcView.java` (`applyDefault()` in `onCreate`), `res/xml/preferences.xml`
 (the Hotkey Overlay category). Strings are in `res/values/strings_fork.xml`.
 
 Tested on the S24-sized emulator (preview activity): landscape and portrait

@@ -3,10 +3,13 @@ package com.limelight.hotkeys;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -27,13 +30,21 @@ import java.util.ArrayDeque;
  * key packet shown on screen and logged (tag "HotkeyPreview"). For trying
  * layouts without a PC (turns to portrait like a real stream). The fake
  * stream is a SurfaceView like the real one, with the two-finger zoom
- * (Docs/zoom.md); a one-finger tap logs the video point under it.
+ * (Docs/zoom.md); a one-finger tap logs the video point under it. Like Game,
+ * landscape hides the keys while the on-screen controller is on (⚙ switch).
  *   adb shell am start -n com.tonycgames.moonlight.debug/com.limelight.hotkeys.HotkeyPreviewActivity
  */
 public class HotkeyPreviewActivity extends Activity {
     private static final String TAG = "HotkeyPreview";
     private final ArrayDeque<String> lines = new ArrayDeque<>();
     private TextView log;
+    private HotkeyOverlay overlay;
+    private boolean controllerShown;
+    private final SharedPreferences.OnSharedPreferenceChangeListener controllerSwitch = (prefs, key) -> {
+        if (LandscapeController.PREF.equals(key)) {
+            updateController();
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,10 +73,13 @@ public class HotkeyPreviewActivity extends Activity {
                 FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER));
         setContentView(root);
 
-        HotkeyOverlay.create(this, root, stream, 1920, 1080, this::onKey, () -> {
+        overlay = HotkeyOverlay.create(this, root, stream, 1920, 1080, this::onKey, () -> {
             onLine("toggle Android keyboard");
             ((InputMethodManager) getSystemService(INPUT_METHOD_SERVICE)).toggleSoftInput(0, 0);
         });
+
+        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(controllerSwitch);
+        updateController();
 
         StreamZoom zoom = StreamZoom.create(this, stream, () -> onLine("zoom: touches cancelled"));
         background.setOnTouchListener(new View.OnTouchListener() {
@@ -93,6 +107,32 @@ public class HotkeyPreviewActivity extends Activity {
                 return true;
             }
         });
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        updateController();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(controllerSwitch);
+    }
+
+    /** Game's rule (updateTouchOverlays): landscape + controller on = no keys. */
+    private void updateController() {
+        if (overlay == null) {
+            return;
+        }
+        boolean shown = getResources().getConfiguration().orientation != Configuration.ORIENTATION_PORTRAIT &&
+                LandscapeController.isOn(this);
+        overlay.setYielded(shown);
+        if (shown != controllerShown) {
+            controllerShown = shown;
+            onLine(shown ? "on-screen controller shown, hotkeys hidden" : "hotkeys shown");
+        }
     }
 
     private void onKey(short keyMap, byte direction, byte modifiers) {
